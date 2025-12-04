@@ -17,6 +17,11 @@ enum RequestStatus {
   cancelled
 }
 
+enum RequestType {
+  rd_parts
+  work_order
+}
+
 model PrintRequest {
   id            String   @id @default(cuid())
   partNumber    String
@@ -24,6 +29,7 @@ model PrintRequest {
   quantity      Int
   deadline      DateTime?
   status        RequestStatus @default(pending)
+  requestType   RequestType @default(rd_parts)
   requesterName String
   requesterEmail String
 

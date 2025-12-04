@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { saveUploadedFile, validateFile } from '@/lib/fileStorage';
-import { sendRequestConfirmation } from '@/lib/email';
+import { sendRequestConfirmation, sendWorkOrderRequest } from '@/lib/email';
 import { Prisma } from '@prisma/client';
 
 export async function POST(request: NextRequest) {
@@ -15,6 +14,7 @@ export async function POST(request: NextRequest) {
     const deadline = formData.get('deadline') as string;
     const requesterName = formData.get('requesterName') as string;
     const requesterEmail = formData.get('requesterEmail') as string;
+    const requestType = (formData.get('requestType') as string) || 'rd_parts';
 
     // Validate required fields
     if (!partNumber || !quantity || !requesterName || !requesterEmail) {
@@ -22,41 +22,6 @@ export async function POST(request: NextRequest) {
         { error: 'Missing required fields' },
         { status: 400 }
       );
-    }
-
-    // Handle file upload if present
-    let fileInfo = null;
-    const file = formData.get('file') as File;
-
-    if (file && file.size > 0) {
-      // Convert File to Express.Multer.File format for validation
-      const multerFile = {
-        fieldname: 'file',
-        originalname: file.name,
-        encoding: '7bit',
-        mimetype: file.type,
-        buffer: Buffer.from(await file.arrayBuffer()),
-        size: file.size,
-        path: '', // Will be set by multer if needed
-        stream: null,
-        destination: '',
-        filename: '',
-      };
-
-      const validation = validateFile(multerFile);
-      if (!validation.isValid) {
-        return NextResponse.json(
-          { error: validation.error },
-          { status: 400 }
-        );
-      }
-
-      // Save file temporarily for processing
-      const tempPath = `/tmp/${Date.now()}-${file.name}`;
-      await require('fs').promises.writeFile(tempPath, multerFile.buffer);
-      multerFile.path = tempPath;
-
-      fileInfo = await saveUploadedFile(multerFile);
     }
 
     // Create the request in database
@@ -67,11 +32,7 @@ export async function POST(request: NextRequest) {
       deadline: deadline ? new Date(deadline) : null,
       requesterName,
       requesterEmail,
-      ...(fileInfo && {
-        fileName: fileInfo.originalName,
-        filePath: fileInfo.path,
-        fileSize: fileInfo.size,
-      }),
+      requestType: requestType as 'rd_parts' | 'work_order',
     };
 
     const newRequest = await prisma.printRequest.create({
@@ -94,6 +55,26 @@ export async function POST(request: NextRequest) {
     } catch (emailError) {
       console.error('Failed to send confirmation email:', emailError);
       // Don't fail the request if email fails
+    }
+
+    // If this is a work order request, send email to Mike and Gunner
+    if (newRequest.requestType === 'work_order') {
+      try {
+        await sendWorkOrderRequest({
+          id: newRequest.id,
+          partNumber: newRequest.partNumber,
+          description: newRequest.description || undefined,
+          quantity: newRequest.quantity,
+          deadline: newRequest.deadline || undefined,
+          requesterName: newRequest.requesterName,
+          requesterEmail: newRequest.requesterEmail,
+          status: newRequest.status,
+          fileName: newRequest.fileName || undefined,
+        });
+      } catch (workOrderEmailError) {
+        console.error('Failed to send work order request email:', workOrderEmailError);
+        // Don't fail the request if email fails
+      }
     }
 
     return NextResponse.json(newRequest, { status: 201 });

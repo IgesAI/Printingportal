@@ -2,15 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { sendStatusUpdate } from '@/lib/email';
 
-interface RouteParams {
-  params: {
-    id: string;
-  };
-}
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
 
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, context: RouteContext) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
 
     const requestData = await prisma.printRequest.findUnique({
       where: { id },
@@ -33,9 +31,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function PUT(request: NextRequest, { params }: RouteParams) {
+export async function PUT(request: NextRequest, context: RouteContext) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
     const body = await request.json();
 
     const { status, notes } = body;
@@ -105,9 +103,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
 
     // Get request to check if file exists
     const requestData = await prisma.printRequest.findUnique({

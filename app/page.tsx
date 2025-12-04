@@ -11,14 +11,16 @@ import {
   Alert,
   CircularProgress,
   Grid,
-  Card,
-  CardContent,
+  ToggleButton,
+  ToggleButtonGroup,
+  Divider,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import SendIcon from '@mui/icons-material/Send';
+import BuildIcon from '@mui/icons-material/Build';
+import DescriptionIcon from '@mui/icons-material/Description';
 
 export default function Home() {
   const [formData, setFormData] = useState({
@@ -28,9 +30,9 @@ export default function Home() {
     deadline: null as Date | null,
     requesterName: '',
     requesterEmail: '',
+    requestType: 'rd_parts' as 'rd_parts' | 'work_order',
   });
 
-  const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -39,11 +41,6 @@ export default function Home() {
       ...prev,
       [field]: value,
     }));
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0] || null;
-    setFile(selectedFile);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -61,11 +58,6 @@ export default function Home() {
         }
       });
 
-      // Add file if selected
-      if (file) {
-        submitData.append('file', file);
-      }
-
       const response = await fetch('/api/requests', {
         method: 'POST',
         body: submitData,
@@ -74,9 +66,12 @@ export default function Home() {
       const result = await response.json();
 
       if (response.ok) {
+        const isWorkOrder = formData.requestType === 'work_order';
         setMessage({
           type: 'success',
-          text: 'Your 3D print request has been submitted successfully! You will receive a confirmation email shortly.',
+          text: isWorkOrder 
+            ? '> Request submitted! Work order notification sent to Mike and Gunner for approval.'
+            : '> Request submitted successfully! You will receive a confirmation email shortly.',
         });
 
         // Reset form
@@ -87,18 +82,18 @@ export default function Home() {
           deadline: null,
           requesterName: '',
           requesterEmail: '',
+          requestType: 'rd_parts',
         });
-        setFile(null);
       } else {
         setMessage({
           type: 'error',
-          text: result.error || 'Failed to submit request. Please try again.',
+          text: `> Error: ${result.error || 'Failed to submit request. Please try again.'}`,
         });
       }
     } catch (error) {
       setMessage({
         type: 'error',
-        text: 'Network error. Please check your connection and try again.',
+        text: '> Connection error. Please check your network and try again.',
       });
     } finally {
       setLoading(false);
@@ -108,133 +103,241 @@ export default function Home() {
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Container maxWidth="md" sx={{ py: 4 }}>
-        <Typography variant="h3" component="h1" gutterBottom align="center">
-          3D Print Request Portal
-        </Typography>
-        <Typography variant="h6" color="text.secondary" align="center" sx={{ mb: 4 }}>
-          Submit your 3D printing requests and track their progress
-        </Typography>
+        {/* Terminal Header with ASCII Art Logo */}
+        <Box sx={{ textAlign: 'center', mb: 4 }}>
+          <Box 
+            component="pre"
+            sx={{ 
+              fontFamily: 'monospace',
+              fontSize: { xs: '3px', sm: '5px', md: '6px', lg: '7px' },
+              lineHeight: 1.1,
+              color: 'primary.main',
+              textShadow: '0 0 10px #15ff00',
+              overflow: 'hidden',
+              whiteSpace: 'pre',
+              mb: 2,
+              letterSpacing: '-0.5px',
+            }}
+          >
+{`                                                                                                                   +[                                                                           
+                                                                                                                    =@%                                                                         
+                                                                                                                     :@@>                                                                       
+                                                                                                                      +@@]                                                                      
+                                                                                                                       ]@@]                                                                     
+                                                                                                                        @@@)                                                                    
+                                                                                                                        :@@%*                                                                   
+                                                                                                                        =@@@>                                                                   
+                                                                                           -=*]}%@@@%#[<*==-            =@@@@*                                                                  
+                                                                                         :::-*)#@@@@@@@@@@@@@@@@@<-     #@@@@+                                                                  
+                                                                                              -+     :-=)@@@@@@@@@@@@@@@@@@@@[-                                                                 
+                                                                                                 -)##)>-     *]#@@@@@@@@@@@@@@-                                                                 
+                                                                                                      <@@@@]:      <%@@@@@@@@@-                                                                 
+                                             -<}@@@@@@@@@@@@@@@@@@@@@@%]                                  @@@@@@}:      }@@@@#=                                                                 
+                                     +]}@@@@@@}]]][}}}}[[[][[[}}}}[)[@@)=   %%%%%%%%%%%%%%%%%]:             *@@@@@@@}=    :)%=                                                                  
+                               :=]@@@@%})<[%}])<<<<<<<<<<<<<<<<<<<[}]@@=   [@@}]]][[[[][[)}@@                 +@@@@@@@@#                                                                        
+                            >@@@@#>[%[<<<<<<<<<<<<<<<<<<<<<<<<<<<)%<@@*    @@#*}<<<<<<<)#}@@]+                 -[@@@@@@@#                                                                       
+                        =#@@@)}#])<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<}##@%>   @@@<%<<<<<<<<]%)@@+                    }@@@@@@#                                   :=*>>>*=                            
+                     +#@@#]}[)<<<<<<<<<<<<<<<<<<<<<<<<)))))<<<<<)@+@@>   +@@%]}<<<<<<<<%*@@@@@@@@@@@@@@@@@@@}<-  <@@@@@@%      ->)[#@@@@@@@@@@@@@> +<[@@@@@@@@@@@@@@@@@@@@}<=                   
+                   ]@@@)}[<<<<<<<<<<<<<<<<<)]}@@@@@@%#####%@@@@@@]%@@@@] @@@:%<<<<<<<<[%<<><}%@@@@@@@@%[>=)%@@@@%=}@@@@@=  *%@@@@@%]<>>******-@@@@@@@#<*>[%@%#####%@@}<*<#@@@@@<                
+                 [@@]]%<<<<<<<<<<<<<<<<[@@@#]<<<<<<<<<<<<<<<<<<<<)#@<>@@@@@}@]<<<<<<<<[)<<<<<<<<<<<<<<<<<<)}@[+%@@@@@@@@%@@@]<%%[))<<<<<<<<]@]@%<]%})<<<<<<<<<<<<<<<<<<<<]#@><@@@@>             
+               )@@][#<<<<<<<<<<<<<<)#@@})<<<<<<<<<<<<<<<<<<<<<<<<<<<)}#>@@@-@<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<[#)[@@@@@@#]#})<<<<<<<<<<<<<<@:]#[)<<<<<<<<<<<<<<<<<<<<<<<<<<<<}%<}@@@:           
+             -}@%)#)<<<<<<<<<<<<<[@@})<<<<<<<<)]}}##}}}}###}]<<<<<<<<<<#[[+@<<<<<<<<<<<<<)[}}}#%####[)<<<<<<<<<<[%>@@@]]#<<<<<<<<<<)][[[[[%@}<<<<<<<<<)]}}##}}}}###})<<<<<<<<<)#]]@@@           
+             @@[[}<<<<<<<<<<<<<]@@#<<<<<<<<)%]<@@@@@@@@@@@@@*}%<<<<<<<<<@>]%<<<<<<<<<<##*[@@@@@@@@@@@*)@)<<<<<<<<}@[#)%<<<<<<<<)@]*#@@@@*#]<<<<<<<<)@<>@@@@@@@@@@@@@>[#<<<<<<<<)#)}@@:          
+            @@#]}<<<<<<<<<<<<<#@@]<<<<<<<)@+@@@@@@@@@@@@@@@@@%<@<<<<<<<<}#@<<<<<<<<)@=@@@@@@@@@@@@@@@@@>%)<<<<<<<]@=[[<<<<<<<<%+@@@@@@@]#)<<<<<<<]}]@@@@@@@@@@@@@@@@@[]}<<<<<<<<}]}@@           
+           ]@@[}})<<<<<<<<<<][@@#]<<<<<<]@:@@@@@@@@@@@@@@@@@@%[#]<<<<<<]@@[)<<<<<))@ @@@@@@@@@@@@@@@@@@)%[<<<<<<)%>-@[<<<<<<)#<%@@@@@@)}#)<<<<<)[%[@@@@@@@@@@@@@@@@@@}[#)<<<<<)[}[@@[           
+           @@#)%}#####}#####}#@@}#######[@=@@@@@@@@@@@@@@@@@]#########}@*@)#######[@+@@@@@@@@@@@@@@@@}[########}%):%]#######[%]@@@@@@@[##}######[%>}@@@@@@@@@@@@@@@%]}}}###}##}#}}@@:           
+           @@#)%}############[@@@[#######}[@>+%@@@@@@@@@]*[%}}######}#%<]#@}#######}[@)=#@@@@@@@@}*[@}}#######}%]}##}######}%+%@@@@@@@<]}}#######}}@[=[@@@@@@@@<+[@}}########}}[]@@>:           
+           @@%]##############}[@@@}}########}####}}[}}###}}#######}#}]%@@)]@[#########}}###}}}####}}#######}##<}@>}}########}#@@@@@@@@@][%[#########}}####}####}}#############}}}@@-            
+           }@@[)#}#############}}@@@}}}######################}}##}][@@@@@@@+[%}}}#####################}}###])@@@}}}}######[#)#@@@@@@@@@@@<[@}}}#############################}}#)@@>             
+            @@@<)%}###############[}@@@%[[}#}#########}#}}[#@[+]@@@@@@@@@@@@@@>*%%}[}#}##}##}#}##}[[#@[*[@@@@@@@}##}#}}##}%][@@@@@@@@@@@@@@@>+%%}[}#}#######}}#}[[}@@}########]%@#=             
+            :@@@}*%}}################}}}}}%@@@@@@@@@@@@%}%)]@@@@@@@@@@@@@@@@@@@@@@@}<==*<)]])>*+>[%@@@@@@@@@@@@@}}}}}}}}}}}#@@@@@@@@@@@@@@@@@@@@@}<+=*<)]))>**>]%@#[}}}}}}}}}}#@@<              
+              )@@@[*%#[}#################################}}@@@@@@@@@@@@@@@%%%%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@}=              
+                <@@@@)<##}}}###########################}}[[@@@@@@@@@@@@)        [@@@@@@@@@@+     -------------------+@@@     --------------:     [@@-                         @@)               
+                   >@@@@@)*%@[[}######################}##)@@@@@@@@@%-   )@@@@@=   )@@@@@@@<                        #@@@-   :%@@@@@@@@@@@@@@@    +@@[   @@@@@@@@@@@@@@@@@@@*  *@}:               
+                      -*#@@@@%#]<)#@%#}}[[}}}}}}}}}[[}}#}%@@@@@@<    :::::::::::    -@@@@]     @@@@@@@@@@@@@@@@@@@@@@@[    >}}}}}}}<      <#%@@@@@@:  =[[[[[[[[[[[[[[[[[[<   @@<                
+                           -)}%@@@@@@@}))))))))))))])[#@@@@@@#*=+*#@@@@@@@@@@@@@@@<==+<@@>------------------------}@@@=---)@@@@@@@@@@@@@]=---=)%@@@}>*+++++++++++++++++++++)@@%                 
+                                    =<[%@@@@@@@@@@@%})*-`}
+          </Box>
+          <Typography 
+            variant="h4" 
+            sx={{ 
+              letterSpacing: '0.1em',
+              mt: 2,
+            }}
+          >
+            3D Print Request Portal
+          </Typography>
+        </Box>
 
-        <Paper elevation={3} sx={{ p: 4 }}>
-          <Typography variant="h5" gutterBottom>
-            New Print Request
+        <Paper 
+          elevation={3} 
+          sx={{ 
+            p: 4, 
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          <Typography 
+            variant="h5" 
+            gutterBottom 
+            sx={{ 
+              borderBottom: '1px solid',
+              borderColor: 'primary.main',
+              pb: 1,
+              mb: 3,
+            }}
+          >
+            {'>'} New Print Request_
           </Typography>
 
           {message && (
-            <Alert severity={message.type} sx={{ mb: 3 }}>
+            <Alert 
+              severity={message.type} 
+              sx={{ 
+                mb: 3,
+                fontFamily: '"VT323", monospace',
+              }}
+            >
               {message.text}
             </Alert>
           )}
 
           <Box component="form" onSubmit={handleSubmit}>
             <Grid container spacing={3}>
-              <Grid item xs={12} sm={6}>
+              {/* Request Type Toggle */}
+              <Grid size={12}>
+                <Box sx={{ mb: 1 }}>
+                  <Typography variant="subtitle1" gutterBottom sx={{ color: 'text.secondary' }}>
+                    {'>'} Select Request Type:
+                  </Typography>
+                  <ToggleButtonGroup
+                    value={formData.requestType}
+                    exclusive
+                    onChange={(_, newValue) => {
+                      if (newValue !== null) {
+                        handleInputChange('requestType', newValue);
+                      }
+                    }}
+                    aria-label="request type"
+                    sx={{ 
+                      width: '100%',
+                      '& .MuiToggleButton-root': {
+                        flex: 1,
+                        py: 1.5,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 1,
+                        minHeight: '56px',
+                      }
+                    }}
+                  >
+                    <ToggleButton 
+                      value="rd_parts" 
+                      aria-label="R&D / Prototype"
+                    >
+                      <BuildIcon />
+                      <span>R&D / Prototype</span>
+                    </ToggleButton>
+                    <ToggleButton 
+                      value="work_order" 
+                      aria-label="Needs Work Order"
+                    >
+                      <DescriptionIcon />
+                      <span>Needs Work Order</span>
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                  {formData.requestType === 'work_order' && (
+                    <Alert severity="info" sx={{ mt: 2 }}>
+                      This request will notify Mike and Gunner to create a work order.
+                    </Alert>
+                  )}
+                </Box>
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
-                  label="Part Number *"
+                  label="Part Number"
                   value={formData.partNumber}
                   onChange={(e) => handleInputChange('partNumber', e.target.value)}
                   required
                   variant="outlined"
+                  placeholder="e.g., CA-3D-001"
+                  helperText="Enter the part number or identifier"
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
-                  label="Quantity *"
+                  label="Quantity"
                   type="number"
                   value={formData.quantity}
                   onChange={(e) => handleInputChange('quantity', Math.max(1, parseInt(e.target.value) || 1))}
                   required
                   inputProps={{ min: 1 }}
                   variant="outlined"
+                  helperText="How many do you need?"
                 />
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <TextField
                   fullWidth
-                  label="Description"
+                  label="Description / Notes"
                   multiline
                   rows={3}
                   value={formData.description}
                   onChange={(e) => handleInputChange('description', e.target.value)}
-                  placeholder="Optional: Provide any additional details about the part..."
+                  placeholder="Material preferences, special requirements, etc."
                   variant="outlined"
+                  helperText="Any additional details about the print (optional)"
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <DatePicker
-                  label="Deadline (Optional)"
+                  label="Needed By (Optional)"
                   value={formData.deadline}
                   onChange={(date) => handleInputChange('deadline', date)}
                   slotProps={{
                     textField: {
                       fullWidth: true,
                       variant: 'outlined',
+                      helperText: 'When do you need this completed?',
                     },
                   }}
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
-                  label="Your Name *"
+                  label="Your Name"
                   value={formData.requesterName}
                   onChange={(e) => handleInputChange('requesterName', e.target.value)}
                   required
                   variant="outlined"
+                  placeholder="John Smith"
+                  helperText="Who is requesting this print?"
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
-                  label="Email Address *"
+                  label="Email Address"
                   type="email"
                   value={formData.requesterEmail}
                   onChange={(e) => handleInputChange('requesterEmail', e.target.value)}
                   required
                   variant="outlined"
+                  placeholder="john@cobra-aero.com"
+                  helperText="For status updates and notifications"
                 />
               </Grid>
 
-              <Grid item xs={12}>
-                <Card variant="outlined">
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      File Upload (Optional)
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      Upload your 3D model file (STL, OBJ, STEP, etc.). Maximum size: 100MB.
-                    </Typography>
-
-                    <Button
-                      variant="outlined"
-                      component="label"
-                      startIcon={<CloudUploadIcon />}
-                      sx={{ mb: 1 }}
-                    >
-                      Choose File
-                      <input
-                        type="file"
-                        hidden
-                        accept=".stl,.obj,.step,.stp,.iges,.igs,.3ds,.dae,.fbx,.ply,.x3d,.gltf,.glb"
-                        onChange={handleFileChange}
-                      />
-                    </Button>
-
-                    {file && (
-                      <Typography variant="body2" sx={{ mt: 1 }}>
-                        Selected: {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                      </Typography>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
             </Grid>
 
             <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
@@ -244,7 +347,11 @@ export default function Home() {
                 size="large"
                 startIcon={loading ? <CircularProgress size={20} /> : <SendIcon />}
                 disabled={loading}
-                sx={{ minWidth: 200, py: 1.5 }}
+                sx={{ 
+                  minWidth: 250, 
+                  py: 2,
+                  fontSize: '1.3rem',
+                }}
               >
                 {loading ? 'Submitting...' : 'Submit Request'}
               </Button>
@@ -255,18 +362,19 @@ export default function Home() {
         <Box sx={{ mt: 4, textAlign: 'center' }}>
           <Button
             variant="outlined"
-            href="/requests"
+            href="/dashboard"
             sx={{ mr: 2 }}
-          >
-            Track My Requests
-          </Button>
-          <Button
-            variant="text"
-            href="/admin"
-            color="secondary"
           >
             Admin Dashboard
           </Button>
+        </Box>
+
+        {/* Terminal footer */}
+        <Box sx={{ mt: 4, textAlign: 'center' }}>
+          <Divider sx={{ mb: 2, borderColor: 'primary.main', opacity: 0.3 }} />
+          <Typography variant="body2" color="text.secondary">
+            TERMINAL STATUS: ONLINE | SYSTEM INTEGRITY: 100%
+          </Typography>
         </Box>
       </Container>
     </LocalizationProvider>
