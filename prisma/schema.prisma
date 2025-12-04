@@ -10,30 +10,72 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  requester
+  operator
+  admin
+}
+
+enum Priority {
+  Low
+  Normal
+  High
+  Critical
+}
+
 enum RequestStatus {
-  pending
-  in_progress
-  completed
-  cancelled
+  New
+  InProgress
+  OnPrinter
+  Completed
+  OnHold
+  Canceled
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  role          UserRole @default(requester)
+  createdAt     DateTime @default(now())
+
+  // Relations
+  requests      PrintRequest[]
+  statusChanges StatusHistory[]
 }
 
 model PrintRequest {
-  id            String   @id @default(cuid())
+  id            String        @id @default(cuid())
+  requesterId   String
+  requester     User          @relation(fields: [requesterId], references: [id])
+  
   partNumber    String
+  quantity      Int           @default(1)
+  requiredDate  DateTime
+  priority      Priority      @default(Normal)
+  fileReference String?       // e.g. "PDM: EXH-12345.SLDPRT" or "\\server\path\file.stl"
   description   String?
-  quantity      Int
-  deadline      DateTime?
-  status        RequestStatus @default(pending)
-  requesterName String
-  requesterEmail String
+  
+  status        RequestStatus @default(New)
+  operatorNotes String?       // Internal notes for operator
+  
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
-  // Optional file fields
-  fileName      String?
-  filePath      String?
-  fileSize      Int?
+  // Relations
+  statusHistory StatusHistory[]
+}
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  completedAt   DateTime?
-  notes         String?  // Admin notes
+model StatusHistory {
+  id          String        @id @default(cuid())
+  requestId   String
+  request     PrintRequest  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  
+  oldStatus   RequestStatus
+  newStatus   RequestStatus
+  changedById String
+  changedBy   User          @relation(fields: [changedById], references: [id])
+  comment     String?
+  
+  changedAt   DateTime      @default(now())
 }
