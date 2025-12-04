@@ -19,7 +19,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <Providers>
-          {children}
+          <main id="main-content">
+            {children}
+          </main>
         </Providers>
       </body>
     </html>
