@@ -1,137 +1,163 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { saveUploadedFile, validateFile } from '@/lib/fileStorage';
-import { sendRequestConfirmation } from '@/lib/email';
+import { sendNewRequestNotification, sendRequestConfirmation } from '@/lib/email';
 import { Prisma } from '@prisma/client';
 
-export async function POST(request: NextRequest) {
-  try {
-    const formData = await request.formData();
-
-    // Extract basic fields
-    const partNumber = formData.get('partNumber') as string;
-    const description = formData.get('description') as string;
-    const quantity = parseInt(formData.get('quantity') as string);
-    const deadline = formData.get('deadline') as string;
-    const requesterName = formData.get('requesterName') as string;
-    const requesterEmail = formData.get('requesterEmail') as string;
-
-    // Validate required fields
-    if (!partNumber || !quantity || !requesterName || !requesterEmail) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-
-    // Handle file upload if present
-    let fileInfo = null;
-    const file = formData.get('file') as File;
-
-    if (file && file.size > 0) {
-      // Convert File to Express.Multer.File format for validation
-      const multerFile = {
-        fieldname: 'file',
-        originalname: file.name,
-        encoding: '7bit',
-        mimetype: file.type,
-        buffer: Buffer.from(await file.arrayBuffer()),
-        size: file.size,
-        path: '', // Will be set by multer if needed
-        stream: null,
-        destination: '',
-        filename: '',
-      };
-
-      const validation = validateFile(multerFile);
-      if (!validation.isValid) {
-        return NextResponse.json(
-          { error: validation.error },
-          { status: 400 }
-        );
-      }
-
-      // Save file temporarily for processing
-      const tempPath = `/tmp/${Date.now()}-${file.name}`;
-      await require('fs').promises.writeFile(tempPath, multerFile.buffer);
-      multerFile.path = tempPath;
-
-      fileInfo = await saveUploadedFile(multerFile);
-    }
-
-    // Create the request in database
-    const requestData = {
-      partNumber,
-      description: description || null,
-      quantity,
-      deadline: deadline ? new Date(deadline) : null,
-      requesterName,
-      requesterEmail,
-      ...(fileInfo && {
-        fileName: fileInfo.originalName,
-        filePath: fileInfo.path,
-        fileSize: fileInfo.size,
-      }),
-    };
-
-    const newRequest = await prisma.printRequest.create({
-      data: requestData,
-    });
-
-    // Send confirmation email
-    try {
-      await sendRequestConfirmation({
-        id: newRequest.id,
-        partNumber: newRequest.partNumber,
-        description: newRequest.description || undefined,
-        quantity: newRequest.quantity,
-        deadline: newRequest.deadline || undefined,
-        requesterName: newRequest.requesterName,
-        requesterEmail: newRequest.requesterEmail,
-        status: newRequest.status,
-        fileName: newRequest.fileName || undefined,
-      });
-    } catch (emailError) {
-      console.error('Failed to send confirmation email:', emailError);
-      // Don't fail the request if email fails
-    }
-
-    return NextResponse.json(newRequest, { status: 201 });
-  } catch (error) {
-    console.error('Error creating request:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
-
+// GET /api/requests - List all requests with optional filters
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
-    const requesterEmail = searchParams.get('requesterEmail');
+    const priority = searchParams.get('priority');
+    const requesterId = searchParams.get('requesterId');
+    const dueSoon = searchParams.get('dueSoon'); // "true" to filter due within 7 days
 
     const where: Prisma.PrintRequestWhereInput = {};
 
-    if (status) {
+    if (status && status !== 'all') {
       where.status = status as any;
     }
 
-    if (requesterEmail) {
-      where.requesterEmail = requesterEmail;
+    if (priority) {
+      where.priority = priority as any;
+    }
+
+    if (requesterId) {
+      where.requesterId = requesterId;
+    }
+
+    if (dueSoon === 'true') {
+      const now = new Date();
+      const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      where.requiredDate = {
+        lte: weekFromNow,
+      };
+      // Only show non-completed/canceled
+      where.status = {
+        notIn: ['Completed', 'Canceled'],
+      };
     }
 
     const requests = await prisma.printRequest.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      include: {
+        requester: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: [
+        { requiredDate: 'asc' },
+        { priority: 'desc' },
+        { createdAt: 'desc' },
+      ],
     });
 
     return NextResponse.json(requests);
   } catch (error) {
     console.error('Error fetching requests:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to fetch requests' },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/requests - Create a new request
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+
+    const {
+      partNumber,
+      quantity,
+      requiredDate,
+      priority,
+      fileReference,
+      description,
+      requesterEmail,
+      requesterName,
+    } = body;
+
+    // Validate required fields
+    if (!partNumber || !quantity || !requiredDate || !requesterEmail || !requesterName) {
+      return NextResponse.json(
+        { error: 'Missing required fields: partNumber, quantity, requiredDate, requesterEmail, requesterName' },
+        { status: 400 }
+      );
+    }
+
+    // Find or create the user
+    let user = await prisma.user.findUnique({
+      where: { email: requesterEmail },
+    });
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email: requesterEmail,
+          name: requesterName,
+          role: 'requester',
+        },
+      });
+    }
+
+    // Create the request
+    const newRequest = await prisma.printRequest.create({
+      data: {
+        requesterId: user.id,
+        partNumber,
+        quantity: parseInt(quantity),
+        requiredDate: new Date(requiredDate),
+        priority: priority || 'Normal',
+        fileReference: fileReference || null,
+        description: description || null,
+        status: 'New',
+      },
+      include: {
+        requester: true,
+      },
+    });
+
+    // Create initial status history entry
+    await prisma.statusHistory.create({
+      data: {
+        requestId: newRequest.id,
+        oldStatus: 'New',
+        newStatus: 'New',
+        changedById: user.id,
+        comment: 'Request created',
+      },
+    });
+
+    // Send email notifications
+    const emailData = {
+      id: newRequest.id,
+      partNumber: newRequest.partNumber,
+      quantity: newRequest.quantity,
+      requiredDate: newRequest.requiredDate,
+      priority: newRequest.priority,
+      fileReference: newRequest.fileReference,
+      description: newRequest.description,
+      status: newRequest.status,
+      requesterName: user.name,
+      requesterEmail: user.email,
+    };
+
+    // Send to operator
+    await sendNewRequestNotification(emailData);
+    
+    // Send confirmation to requester
+    await sendRequestConfirmation(emailData);
+
+    return NextResponse.json(newRequest, { status: 201 });
+  } catch (error) {
+    console.error('Error creating request:', error);
+    return NextResponse.json(
+      { error: 'Failed to create request' },
       { status: 500 }
     );
   }
