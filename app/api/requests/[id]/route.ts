@@ -69,6 +69,8 @@ export async function PATCH(
       priority,
       comment,
       operatorId, // ID of the operator making the change
+      reminderEnabled,
+      reminderDaysBefore,
     } = body;
 
     // Get current request
@@ -96,6 +98,8 @@ export async function PATCH(
       requiredDate: Date;
       priority: string;
       updatedAt: Date;
+      reminderEnabled: boolean;
+      reminderDaysBefore: number | null;
     }> = {
       updatedAt: new Date(),
     };
@@ -105,6 +109,8 @@ export async function PATCH(
     if (quantity) updateData.quantity = parseInt(quantity);
     if (requiredDate) updateData.requiredDate = new Date(requiredDate);
     if (priority) updateData.priority = priority;
+    if (reminderEnabled !== undefined) updateData.reminderEnabled = reminderEnabled;
+    if (reminderDaysBefore !== undefined) updateData.reminderDaysBefore = reminderDaysBefore;
 
     // Update the request
     const updatedRequest = await prisma.printRequest.update({

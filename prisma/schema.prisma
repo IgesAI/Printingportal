@@ -42,6 +42,11 @@ model PrintRequest {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
+  // Reminder settings
+  reminderEnabled   Boolean     @default(false)
+  reminderDaysBefore Int?       // Days before due date to send reminder
+  lastReminderSent  DateTime?
+
   // Status history
   statusHistory  StatusHistory[]
 }

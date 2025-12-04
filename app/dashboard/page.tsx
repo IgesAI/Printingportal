@@ -25,14 +25,20 @@ import {
   Tooltip,
   Tabs,
   Tab,
+  Switch,
+  FormControlLabel,
+  Snackbar,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import HomeIcon from '@mui/icons-material/Home';
 import WarningIcon from '@mui/icons-material/Warning';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+import NotificationsOffIcon from '@mui/icons-material/NotificationsOff';
 
 interface PrintRequest {
   id: string;
@@ -46,6 +52,8 @@ interface PrintRequest {
   operatorNotes: string | null;
   createdAt: string;
   updatedAt: string;
+  reminderEnabled: boolean;
+  reminderDaysBefore: number | null;
   requester: {
     id: string;
     name: string;
@@ -84,6 +92,11 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState('active');
   const [tabValue, setTabValue] = useState(0);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   // Edit dialog state
   const [editDialog, setEditDialog] = useState<{
@@ -94,8 +107,17 @@ export default function DashboardPage() {
     status: '',
     operatorNotes: '',
     comment: '',
+    reminderEnabled: false,
+    reminderDaysBefore: 1,
   });
   const [saving, setSaving] = useState(false);
+
+  // Delete dialog state
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    request: PrintRequest | null;
+  }>({ open: false, request: null });
+  const [deleting, setDeleting] = useState(false);
 
   // New request dialog
   const [newRequestDialog, setNewRequestDialog] = useState(false);
@@ -151,6 +173,8 @@ export default function DashboardPage() {
           status: editForm.status,
           operatorNotes: editForm.operatorNotes,
           comment: editForm.comment || undefined,
+          reminderEnabled: editForm.reminderEnabled,
+          reminderDaysBefore: editForm.reminderEnabled ? editForm.reminderDaysBefore : null,
         }),
       });
 
@@ -158,11 +182,34 @@ export default function DashboardPage() {
 
       await fetchRequests();
       setEditDialog({ open: false, request: null });
+      setSnackbar({ open: true, message: 'Request updated successfully', severity: 'success' });
     } catch (err) {
       console.error('Error updating request:', err);
-      alert('Failed to update request. Please try again.');
+      setSnackbar({ open: true, message: 'Failed to update request', severity: 'error' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteDialog.request) return;
+
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/requests/${deleteDialog.request.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete request');
+
+      await fetchRequests();
+      setDeleteDialog({ open: false, request: null });
+      setSnackbar({ open: true, message: 'Request deleted successfully', severity: 'success' });
+    } catch (err) {
+      console.error('Error deleting request:', err);
+      setSnackbar({ open: true, message: 'Failed to delete request', severity: 'error' });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -171,8 +218,14 @@ export default function DashboardPage() {
       status: request.status,
       operatorNotes: request.operatorNotes || '',
       comment: '',
+      reminderEnabled: request.reminderEnabled || false,
+      reminderDaysBefore: request.reminderDaysBefore || 1,
     });
     setEditDialog({ open: true, request });
+  };
+
+  const openDeleteDialog = (request: PrintRequest) => {
+    setDeleteDialog({ open: true, request });
   };
 
   const isOverdue = (requiredDate: string, status: string) => {
@@ -277,29 +330,19 @@ export default function DashboardPage() {
       ),
     },
     {
-      field: 'fileReference',
-      headerName: 'File Ref',
-      width: 150,
-      renderCell: (params: GridRenderCellParams) =>
-        params.value ? (
-          <Tooltip title={params.value}>
-            <Typography
-              variant="body2"
-              sx={{
-                fontFamily: 'monospace',
-                fontSize: '12px',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {params.value}
-            </Typography>
-          </Tooltip>
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            —
-          </Typography>
-        ),
+      field: 'reminderEnabled',
+      headerName: 'Reminder',
+      width: 80,
+      align: 'center',
+      renderCell: (params: GridRenderCellParams) => (
+        <Tooltip title={params.value ? `Reminder ${params.row.reminderDaysBefore} day(s) before` : 'No reminder'}>
+          {params.value ? (
+            <NotificationsIcon color="primary" fontSize="small" />
+          ) : (
+            <NotificationsOffIcon color="disabled" fontSize="small" />
+          )}
+        </Tooltip>
+      ),
     },
     {
       field: 'createdAt',
@@ -314,11 +357,20 @@ export default function DashboardPage() {
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 80,
+      width: 120,
       renderCell: (params: GridRenderCellParams) => (
-        <IconButton size="small" onClick={() => openEditDialog(params.row)} color="primary">
-          <EditIcon />
-        </IconButton>
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <Tooltip title="Edit">
+            <IconButton size="small" onClick={() => openEditDialog(params.row)} color="primary">
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete">
+            <IconButton size="small" onClick={() => openDeleteDialog(params.row)} color="error">
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
       ),
     },
   ];
@@ -486,7 +538,7 @@ export default function DashboardPage() {
             {editDialog.request && (
               <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
                 <Typography variant="body2">
-                  <strong>Requester:</strong> {editDialog.request.requester.name}
+                  <strong>Requester:</strong> {editDialog.request.requester.name} ({editDialog.request.requester.email})
                 </Typography>
                 <Typography variant="body2">
                   <strong>Quantity:</strong> {editDialog.request.quantity}
@@ -542,13 +594,66 @@ export default function DashboardPage() {
               value={editForm.operatorNotes}
               onChange={(e) => setEditForm((prev) => ({ ...prev, operatorNotes: e.target.value }))}
               placeholder="Internal notes for yourself..."
+              sx={{ mb: 3 }}
             />
+
+            {/* Reminder Settings */}
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <NotificationsIcon fontSize="small" />
+                Email Reminder
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={editForm.reminderEnabled}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, reminderEnabled: e.target.checked }))}
+                  />
+                }
+                label="Enable email reminder before due date"
+              />
+              {editForm.reminderEnabled && (
+                <FormControl fullWidth sx={{ mt: 2 }}>
+                  <InputLabel>Remind me</InputLabel>
+                  <Select
+                    value={editForm.reminderDaysBefore}
+                    label="Remind me"
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, reminderDaysBefore: Number(e.target.value) }))}
+                  >
+                    <MenuItem value={1}>1 day before</MenuItem>
+                    <MenuItem value={2}>2 days before</MenuItem>
+                    <MenuItem value={3}>3 days before</MenuItem>
+                    <MenuItem value={5}>5 days before</MenuItem>
+                    <MenuItem value={7}>1 week before</MenuItem>
+                  </Select>
+                </FormControl>
+              )}
+            </Paper>
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditDialog({ open: false, request: null })}>Cancel</Button>
           <Button onClick={handleStatusUpdate} variant="contained" disabled={saving}>
             {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ open: false, request: null })}>
+        <DialogTitle>Delete Request?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete the request for <strong>{deleteDialog.request?.partNumber}</strong>?
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            This action cannot be undone. The requester will not be notified.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialog({ open: false, request: null })}>Cancel</Button>
+          <Button onClick={handleDelete} color="error" variant="contained" disabled={deleting}>
+            {deleting ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -571,6 +676,22 @@ export default function DashboardPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+          severity={snackbar.severity}
+          variant="filled"
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }

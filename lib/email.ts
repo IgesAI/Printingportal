@@ -261,3 +261,83 @@ function formatStatus(status: string): string {
   };
   return labels[status] || status;
 }
+
+// Email reminder sent to operator before due date
+export async function sendDueDateReminder(data: RequestEmailData, daysUntilDue: number): Promise<boolean> {
+  if (!isEmailConfigured() || !transporter) {
+    console.log('📧 [Reminder] Would send reminder to operator:', OPERATOR_EMAIL);
+    console.log('Request:', { id: data.id, partNumber: data.partNumber, daysUntilDue });
+    return false;
+  }
+
+  const ticketId = data.id.slice(-8).toUpperCase();
+  const urgencyText = daysUntilDue === 0 ? 'TODAY' : daysUntilDue === 1 ? 'TOMORROW' : `in ${daysUntilDue} days`;
+  const subject = `⏰ Reminder: Print Request #${ticketId} due ${urgencyText}`;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #ff9800;">⏰ Due Date Reminder</h2>
+      
+      <p>This is a reminder that the following print request is due <strong>${urgencyText}</strong>:</p>
+
+      <div style="background-color: #fff3e0; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ff9800;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; font-weight: bold; width: 140px;">Ticket ID:</td>
+            <td style="padding: 8px 0;">#${ticketId}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; font-weight: bold;">Part Number:</td>
+            <td style="padding: 8px 0;">${data.partNumber}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; font-weight: bold;">Quantity:</td>
+            <td style="padding: 8px 0;">${data.quantity}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; font-weight: bold;">Due Date:</td>
+            <td style="padding: 8px 0; color: #ff9800; font-weight: bold;">${new Date(data.requiredDate).toLocaleDateString()}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; font-weight: bold;">Status:</td>
+            <td style="padding: 8px 0;">
+              <span style="background: ${getStatusColor(data.status)}; color: white; padding: 4px 12px; border-radius: 4px;">
+                ${formatStatus(data.status)}
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; font-weight: bold;">Requester:</td>
+            <td style="padding: 8px 0;">${data.requesterName} (${data.requesterEmail})</td>
+          </tr>
+          ${data.fileReference ? `
+          <tr>
+            <td style="padding: 8px 0; font-weight: bold;">File Reference:</td>
+            <td style="padding: 8px 0; font-family: monospace; font-size: 13px;">${data.fileReference}</td>
+          </tr>
+          ` : ''}
+        </table>
+      </div>
+
+      <p>
+        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" 
+           style="background: #ff9800; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
+          View in Dashboard
+        </a>
+      </p>
+    </div>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: OPERATOR_EMAIL,
+      subject,
+      html,
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to send reminder email:', error);
+    return false;
+  }
+}
