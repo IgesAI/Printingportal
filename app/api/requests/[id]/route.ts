@@ -2,16 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { sendStatusChangeNotification } from '@/lib/email';
 
-interface RouteParams {
-  params: {
-    id: string;
-  };
-}
-
 // GET /api/requests/[id] - Get single request with history
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const requestData = await prisma.printRequest.findUnique({
       where: { id },
@@ -56,9 +53,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 }
 
 // PATCH /api/requests/[id] - Update request (status, notes, etc.)
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
 
     const {
@@ -153,9 +153,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 }
 
 // DELETE /api/requests/[id] - Delete a request
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Check if request exists
     const existingRequest = await prisma.printRequest.findUnique({
