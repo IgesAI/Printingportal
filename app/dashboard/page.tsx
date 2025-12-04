@@ -19,7 +19,6 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Grid,
   Card,
   CardContent,
   IconButton,
@@ -27,6 +26,7 @@ import {
   Tabs,
   Tab,
 } from '@mui/material';
+import Grid from '@mui/material/Grid';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
@@ -354,7 +354,7 @@ export default function DashboardPage() {
 
       {/* Statistics Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={6} sm={4} md={2}>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
           <Card>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography color="text.secondary" variant="body2">
@@ -364,7 +364,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6} sm={4} md={2}>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
           <Card>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography color="text.secondary" variant="body2">
@@ -376,7 +376,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6} sm={4} md={2}>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
           <Card>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography color="text.secondary" variant="body2">
@@ -388,7 +388,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6} sm={4} md={2}>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
           <Card>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography color="text.secondary" variant="body2">
@@ -400,7 +400,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6} sm={4} md={2}>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
           <Card sx={{ bgcolor: stats.overdue > 0 ? 'error.light' : 'inherit' }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography color={stats.overdue > 0 ? 'error.contrastText' : 'text.secondary'} variant="body2">
@@ -412,7 +412,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6} sm={4} md={2}>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
           <Card>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <IconButton onClick={fetchRequests} disabled={loading}>
@@ -459,9 +459,13 @@ export default function DashboardPage() {
           <DataGrid
             rows={requests}
             columns={columns}
-            pageSize={10}
-            rowsPerPageOptions={[10, 25, 50]}
-            disableSelectionOnClick
+            initialState={{
+              pagination: {
+                paginationModel: { pageSize: 10 },
+              },
+            }}
+            pageSizeOptions={[10, 25, 50]}
+            disableRowSelectionOnClick
             sx={{
               border: 0,
               '& .MuiDataGrid-cell:focus': {
@@ -570,4 +574,3 @@ export default function DashboardPage() {
     </Container>
   );
 }
-

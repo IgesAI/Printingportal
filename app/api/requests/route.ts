@@ -15,11 +15,11 @@ export async function GET(request: NextRequest) {
     const where: Prisma.PrintRequestWhereInput = {};
 
     if (status && status !== 'all') {
-      where.status = status as any;
+      where.status = status;
     }
 
     if (priority) {
-      where.priority = priority as any;
+      where.priority = priority;
     }
 
     if (requesterId) {

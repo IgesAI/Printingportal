@@ -89,7 +89,14 @@ export async function PATCH(
     const oldStatus = currentRequest.status;
 
     // Build update data
-    const updateData: any = {
+    const updateData: Partial<{
+      status: string;
+      operatorNotes: string;
+      quantity: number;
+      requiredDate: Date;
+      priority: string;
+      updatedAt: Date;
+    }> = {
       updatedAt: new Date(),
     };
 

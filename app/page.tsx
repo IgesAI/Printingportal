@@ -10,13 +10,12 @@ import {
   Box,
   Alert,
   CircularProgress,
-  Grid,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  Snackbar,
 } from '@mui/material';
+import Grid from '@mui/material/Grid';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -42,7 +41,7 @@ export default function NewRequestPage() {
     ticketId: '',
   });
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: unknown) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -90,7 +89,7 @@ export default function NewRequestPage() {
       } else {
         setError(result.error || 'Failed to submit request. Please try again.');
       }
-    } catch (err) {
+    } catch {
       setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
@@ -152,7 +151,7 @@ export default function NewRequestPage() {
             <Box component="form" onSubmit={handleSubmit}>
               <Grid container spacing={3}>
                 {/* Part Number */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     label="Part Number *"
@@ -165,7 +164,7 @@ export default function NewRequestPage() {
                 </Grid>
 
                 {/* Quantity */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     label="Quantity *"
@@ -175,13 +174,13 @@ export default function NewRequestPage() {
                       handleInputChange('quantity', Math.max(1, parseInt(e.target.value) || 1))
                     }
                     required
-                    inputProps={{ min: 1 }}
+                    slotProps={{ htmlInput: { min: 1 } }}
                     variant="outlined"
                   />
                 </Grid>
 
                 {/* Required Date */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <DatePicker
                     label="Required Date *"
                     value={formData.requiredDate}
@@ -198,7 +197,7 @@ export default function NewRequestPage() {
                 </Grid>
 
                 {/* Priority */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth>
                     <InputLabel>Priority</InputLabel>
                     <Select
@@ -215,7 +214,7 @@ export default function NewRequestPage() {
                 </Grid>
 
                 {/* File Reference */}
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TextField
                     fullWidth
                     label="File Reference (Optional)"
@@ -228,7 +227,7 @@ export default function NewRequestPage() {
                 </Grid>
 
                 {/* Description */}
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TextField
                     fullWidth
                     label="Description / Notes (Optional)"
@@ -242,14 +241,14 @@ export default function NewRequestPage() {
                 </Grid>
 
                 {/* Divider */}
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2, mb: 1 }}>
                     Your Information
                   </Typography>
                 </Grid>
 
                 {/* Requester Name */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     label="Your Name *"
@@ -261,7 +260,7 @@ export default function NewRequestPage() {
                 </Grid>
 
                 {/* Requester Email */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     label="Email Address *"

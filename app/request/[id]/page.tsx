@@ -5,17 +5,16 @@ import { useParams } from 'next/navigation';
 import {
   Container,
   Typography,
-  Paper,
   Box,
   Button,
   Chip,
-  Grid,
   Card,
   CardContent,
   Alert,
   CircularProgress,
   Divider,
 } from '@mui/material';
+import Grid from '@mui/material/Grid';
 import {
   Timeline,
   TimelineItem,
@@ -61,12 +60,23 @@ interface PrintRequest {
   statusHistory: StatusHistoryItem[];
 }
 
-const statusColors: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
+// For Chip components
+const chipStatusColors: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
   New: 'info',
   InProgress: 'warning',
   OnPrinter: 'secondary',
   Completed: 'success',
   OnHold: 'default',
+  Canceled: 'error',
+};
+
+// For TimelineDot components
+const timelineDotColors: Record<string, 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' | 'grey'> = {
+  New: 'info',
+  InProgress: 'warning',
+  OnPrinter: 'secondary',
+  Completed: 'success',
+  OnHold: 'grey',
   Canceled: 'error',
 };
 
@@ -104,9 +114,8 @@ export default function RequestDetailPage() {
         const data = await response.json();
         setRequest(data);
         setError(null);
-      } catch (err) {
+      } catch {
         setError('Failed to load request details.');
-        console.error('Error fetching request:', err);
       } finally {
         setLoading(false);
       }
@@ -154,7 +163,7 @@ export default function RequestDetailPage() {
 
       <Grid container spacing={3}>
         {/* Main Details */}
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
@@ -168,14 +177,14 @@ export default function RequestDetailPage() {
                 </Box>
                 <Chip
                   label={statusLabels[request.status] || request.status}
-                  color={statusColors[request.status] || 'default'}
+                  color={chipStatusColors[request.status] || 'default'}
                   size="medium"
                   sx={{ fontWeight: 600 }}
                 />
               </Box>
 
               <Grid container spacing={3}>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                     <DescriptionIcon sx={{ mr: 1, color: 'text.secondary' }} />
                     <Typography variant="body2" color="text.secondary">
@@ -185,7 +194,7 @@ export default function RequestDetailPage() {
                   <Typography variant="h6">{request.quantity}</Typography>
                 </Grid>
 
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                     <ScheduleIcon sx={{ mr: 1, color: 'text.secondary' }} />
                     <Typography variant="body2" color="text.secondary">
@@ -197,7 +206,7 @@ export default function RequestDetailPage() {
                   </Typography>
                 </Grid>
 
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     Priority
                   </Typography>
@@ -209,7 +218,7 @@ export default function RequestDetailPage() {
                 </Grid>
 
                 {request.fileReference && (
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                       <FolderIcon sx={{ mr: 1, color: 'text.secondary' }} />
                       <Typography variant="body2" color="text.secondary">
@@ -226,7 +235,7 @@ export default function RequestDetailPage() {
                 )}
 
                 {request.description && (
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       Description
                     </Typography>
@@ -248,7 +257,7 @@ export default function RequestDetailPage() {
                   {request.statusHistory.map((item, index) => (
                     <TimelineItem key={item.id}>
                       <TimelineSeparator>
-                        <TimelineDot color={statusColors[item.newStatus] || 'grey'} />
+                        <TimelineDot color={timelineDotColors[item.newStatus] || 'grey'} />
                         {index < request.statusHistory.length - 1 && <TimelineConnector />}
                       </TimelineSeparator>
                       <TimelineContent>
@@ -273,7 +282,7 @@ export default function RequestDetailPage() {
         </Grid>
 
         {/* Sidebar */}
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -321,4 +330,3 @@ export default function RequestDetailPage() {
     </Container>
   );
 }
-
