@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import {
   Container,
   Paper,
@@ -99,10 +100,22 @@ export default function NewRequestPage() {
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Container maxWidth="md" sx={{ py: 4 }}>
-        <Typography variant="h3" component="h1" gutterBottom align="center" sx={{ fontWeight: 600 }}>
+        {/* Logo */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+          <Image
+            src="/COBRA+AERO+LOGO+-+MAIN_white_outline_nobackground.png"
+            alt="Cobra Aero Logo"
+            width={280}
+            height={140}
+            priority
+            style={{ objectFit: 'contain' }}
+          />
+        </Box>
+        
+        <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ fontWeight: 600 }}>
           3D Print Request
         </Typography>
-        <Typography variant="h6" color="text.secondary" align="center" sx={{ mb: 4 }}>
+        <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 4 }}>
           Submit a new print request
         </Typography>
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import {
   Container,
   Typography,
@@ -387,9 +388,19 @@ export default function DashboardPage() {
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
-          Operator Dashboard
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Image
+            src="/COBRA+AERO+LOGO+-+MAIN_white_outline_nobackground.png"
+            alt="Cobra Aero Logo"
+            width={160}
+            height={80}
+            priority
+            style={{ objectFit: 'contain' }}
+          />
+          <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
+            Operator Dashboard
+          </Typography>
+        </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<HomeIcon />} href="/">
             Request Form
