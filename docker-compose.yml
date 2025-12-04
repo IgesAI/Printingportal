@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: printingportal
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d printingportal"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "postgresql://postgres:password@db:5432/printingportal"
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+      # Email configuration - update these with your actual values
+      SMTP_HOST: "smtp.gmail.com"
+      SMTP_PORT: 587
+      SMTP_USER: "your-email@gmail.com"
+      SMTP_PASS: "your-app-password"
+      SMTP_FROM: "noreply@printingportal.com"
+      # File upload settings
+      UPLOAD_DIR: "./public/uploads"
+      MAX_FILE_SIZE: 104857600
+    volumes:
+      - uploads:/app/public/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && npm run start"
+
+volumes:
+  postgres_data:
+  uploads:
