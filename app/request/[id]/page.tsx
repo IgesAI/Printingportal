@@ -16,13 +16,6 @@ import {
   Card,
   CardContent,
   Skeleton,
-  Timeline,
-  TimelineItem,
-  TimelineSeparator,
-  TimelineConnector,
-  TimelineContent,
-  TimelineDot,
-  TimelineOppositeContent,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -355,27 +348,70 @@ export default function RequestDetailPage() {
             <Typography variant="h6" gutterBottom>
               Request Timeline
             </Typography>
-            <Timeline>
+            <Box sx={{ position: 'relative', pl: 3 }}>
               {timelineEvents.map((event, index) => (
-                <TimelineItem key={index}>
-                  <TimelineOppositeContent sx={{ flex: 0.3 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      {formatDateTime(event.time)}
-                    </Typography>
-                  </TimelineOppositeContent>
-                  <TimelineSeparator>
-                    <TimelineDot color={event.status as any}>{getStatusIcon(request.status)}</TimelineDot>
-                    {index < timelineEvents.length - 1 && <TimelineConnector />}
-                  </TimelineSeparator>
-                  <TimelineContent>
-                    <Typography variant="subtitle2">{event.label}</Typography>
+                <Box key={index} sx={{ position: 'relative', pb: index < timelineEvents.length - 1 ? 3 : 0 }}>
+                  {/* Timeline line */}
+                  {index < timelineEvents.length - 1 && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        left: '-15px',
+                        top: '24px',
+                        bottom: '-12px',
+                        width: '2px',
+                        bgcolor: 'divider',
+                      }}
+                    />
+                  )}
+                  {/* Timeline dot */}
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      left: '-21px',
+                      top: '2px',
+                      width: '16px',
+                      height: '16px',
+                      borderRadius: '50%',
+                      bgcolor: 'background.paper',
+                      border: '2px solid',
+                      borderColor: `${event.status}.main`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 1,
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        fontSize: '10px',
+                        color: `${event.status}.main`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {event.status === 'success' ? <CheckCircleIcon sx={{ fontSize: '12px' }} /> :
+                       event.status === 'error' ? <CancelIcon sx={{ fontSize: '12px' }} /> :
+                       event.status === 'info' ? <BuildIcon sx={{ fontSize: '12px' }} /> :
+                       <PendingIcon sx={{ fontSize: '12px' }} />}
+                    </Box>
+                  </Box>
+                  {/* Timeline content */}
+                  <Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                      <Typography variant="subtitle2">{event.label}</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
+                        {formatDateTime(event.time)}
+                      </Typography>
+                    </Box>
                     <Typography variant="caption" color="text.secondary">
                       {event.description}
                     </Typography>
-                  </TimelineContent>
-                </TimelineItem>
+                  </Box>
+                </Box>
               ))}
-            </Timeline>
+            </Box>
           </Paper>
         </Grid>
 
