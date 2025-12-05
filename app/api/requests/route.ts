@@ -125,6 +125,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const requesterEmail = searchParams.get('requesterEmail');
+    const search = searchParams.get('search');
+    const requestType = searchParams.get('requestType');
+    const sortColumn = searchParams.get('sortColumn');
+    const sortDirection = searchParams.get('sortDirection');
 
     const where: Prisma.PrintRequestWhereInput = {};
 
@@ -136,16 +140,42 @@ export async function GET(request: NextRequest) {
       where.requesterEmail = requesterEmail;
     }
 
+    if (requestType) {
+      where.requestType = requestType as any;
+    }
+
+    if (search) {
+      where.OR = [
+        { partNumber: { contains: search, mode: 'insensitive' } },
+        { requesterName: { contains: search, mode: 'insensitive' } },
+        { requesterEmail: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const orderBy: any = {};
+    if (sortColumn && sortDirection) {
+      orderBy[sortColumn] = sortDirection;
+    } else {
+      orderBy.createdAt = 'desc';
+    }
+
     const requests = await prisma.printRequest.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy,
     });
 
     return NextResponse.json(requests);
   } catch (error) {
     console.error('Error fetching requests:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorDetails = error instanceof Error ? error.stack : String(error);
+    console.error('Error details:', errorDetails);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        message: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+      },
       { status: 500 }
     );
   }
