@@ -94,6 +94,7 @@ export default function Home() {
           requesterName: '',
           requesterEmail: '',
           requestType: 'rd_parts',
+          workOrderType: null,
         });
       } else {
         showToast(`Error: ${result.error || 'Failed to submit request. Please try again.'}`, 'error');
