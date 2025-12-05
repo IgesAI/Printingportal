@@ -47,7 +47,10 @@ import DownloadIcon from '@mui/icons-material/Download';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import { useToast } from '@/lib/toast';
+import { useAuth } from '@/lib/auth';
 import Link from 'next/link';
+import LockIcon from '@mui/icons-material/Lock';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
 
 interface PrintRequest {
   id: string;
@@ -107,6 +110,7 @@ export default function Dashboard() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
   const { showToast } = useToast();
+  const { isAuthenticated, showLoginDialog, logout } = useAuth();
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -228,6 +232,10 @@ export default function Dashboard() {
   };
 
   const handleBulkStatusUpdate = async () => {
+    if (!isAuthenticated) {
+      showLoginDialog();
+      return;
+    }
     if (!bulkStatus || selectedIds.size === 0) return;
 
     setBulkUpdating(true);
@@ -261,6 +269,10 @@ export default function Dashboard() {
   };
 
   const handleEditOpen = (request: PrintRequest) => {
+    if (!isAuthenticated) {
+      showLoginDialog();
+      return;
+    }
     setEditDialog(request);
     setEditStatus(request.status);
     setEditNotes(request.notes || '');
@@ -304,6 +316,10 @@ export default function Dashboard() {
   };
 
   const handleDeleteOpen = (request: PrintRequest) => {
+    if (!isAuthenticated) {
+      showLoginDialog();
+      return;
+    }
     setDeleteDialog(request);
   };
 
@@ -336,6 +352,10 @@ export default function Dashboard() {
   };
 
   const handleBulkDelete = async () => {
+    if (!isAuthenticated) {
+      showLoginDialog();
+      return;
+    }
     if (selectedIds.size === 0) return;
 
     if (!confirm(`Are you sure you want to delete ${selectedIds.size} request(s)? This cannot be undone.`)) {
@@ -458,9 +478,36 @@ export default function Dashboard() {
           </Typography>
           <Typography variant="body1" color="text.secondary">
             Manage and track all 3D print requests
+            {!isAuthenticated && (
+              <Chip 
+                label="View Only - Login to Edit" 
+                size="small" 
+                color="warning" 
+                sx={{ ml: 2 }}
+              />
+            )}
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          {isAuthenticated ? (
+            <Button
+              variant="outlined"
+              startIcon={<LockOpenIcon />}
+              onClick={logout}
+              color="success"
+            >
+              Logout
+            </Button>
+          ) : (
+            <Button
+              variant="outlined"
+              startIcon={<LockIcon />}
+              onClick={showLoginDialog}
+              color="warning"
+            >
+              Login to Edit
+            </Button>
+          )}
           <Button variant="outlined" startIcon={<HomeIcon />} component={Link} href="/">
             Back to Portal
           </Button>
@@ -599,12 +646,24 @@ export default function Dashboard() {
                   <Button
                     variant="outlined"
                     size="small"
-                    onClick={() => setBulkActionDialog(true)}
-                    disabled={bulkUpdating}
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        showLoginDialog();
+                        return;
+                      }
+                      setBulkActionDialog(true);
+                    }}
+                    disabled={bulkUpdating || !isAuthenticated}
                   >
                     Update Status ({selectedIds.size})
                   </Button>
-                  <Button variant="outlined" color="error" size="small" onClick={handleBulkDelete} disabled={deleting}>
+                  <Button 
+                    variant="outlined" 
+                    color="error" 
+                    size="small" 
+                    onClick={handleBulkDelete} 
+                    disabled={deleting || !isAuthenticated}
+                  >
                     Delete ({selectedIds.size})
                   </Button>
                 </>
@@ -755,15 +814,29 @@ export default function Dashboard() {
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
-                      <Tooltip title="Edit / Update Status">
-                        <IconButton size="small" onClick={() => handleEditOpen(request)} sx={{ mr: 1 }}>
-                          <EditIcon />
-                        </IconButton>
+                      <Tooltip title={isAuthenticated ? "Edit / Update Status" : "Login required to edit"}>
+                        <span>
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleEditOpen(request)} 
+                            sx={{ mr: 1 }}
+                            disabled={!isAuthenticated}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </span>
                       </Tooltip>
-                      <Tooltip title="Delete">
-                        <IconButton size="small" onClick={() => handleDeleteOpen(request)} color="error">
-                          <DeleteIcon />
-                        </IconButton>
+                      <Tooltip title={isAuthenticated ? "Delete" : "Login required to delete"}>
+                        <span>
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleDeleteOpen(request)} 
+                            color="error"
+                            disabled={!isAuthenticated}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </span>
                       </Tooltip>
                     </TableCell>
                   </TableRow>

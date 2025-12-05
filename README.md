@@ -93,6 +93,9 @@ MAX_FILE_SIZE=104857600
 
 # Application
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
+
+# Admin Authentication (for dashboard)
+ADMIN_PASSWORD="your-secure-password-here"
 ```
 
 ## Usage
@@ -107,10 +110,14 @@ NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
 ### For Admins (Managing Requests)
 
-1. Visit `/admin` for the admin dashboard
-2. View all requests with filtering options
-3. Update request statuses and add notes
-4. Changes trigger email notifications to requesters
+1. Visit `/dashboard` for the admin dashboard
+2. **View-only access**: Anyone can view requests, search, filter, and export data
+3. **Edit access**: Click "Login to Edit" button and enter the admin password to make changes
+4. Update request statuses and add notes (requires authentication)
+5. Delete requests (requires authentication)
+6. Changes trigger email notifications to requesters
+
+**Note**: The dashboard uses a simple password-based authentication system. Set the `ADMIN_PASSWORD` environment variable to secure your admin access. The default password is `admin123` - **change this in production!**
 
 ## API Endpoints
 
