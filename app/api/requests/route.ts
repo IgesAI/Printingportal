@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { sendRequestConfirmation, sendWorkOrderRequest } from '@/lib/email';
+import { sendRequestConfirmation, sendWorkOrderRequest, sendBuilderNotification } from '@/lib/email';
 import { Prisma } from '@prisma/client';
 
 export async function POST(request: NextRequest) {
@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
     const requesterName = formData.get('requesterName') as string;
     const requesterEmail = formData.get('requesterEmail') as string;
     const requestType = (formData.get('requestType') as string) || 'rd_parts';
+    const workOrderType = formData.get('workOrderType') as string | null;
 
     // Validate required fields
     if (!partNumber || !quantity || !requesterName || !requesterEmail) {
@@ -24,8 +25,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate workOrderType is provided when requestType is work_order
+    if (requestType === 'work_order' && !workOrderType) {
+      return NextResponse.json(
+        { error: 'Work order type (aero or moto) is required for work order requests' },
+        { status: 400 }
+      );
+    }
+
     // Create the request in database
-    const requestData = {
+    const requestData: any = {
       partNumber,
       description: description || null,
       quantity,
@@ -35,11 +44,16 @@ export async function POST(request: NextRequest) {
       requestType: requestType as 'rd_parts' | 'work_order',
     };
 
+    // Only add workOrderType if it's a work_order request
+    if (requestType === 'work_order' && workOrderType) {
+      requestData.workOrderType = workOrderType as 'aero' | 'moto';
+    }
+
     const newRequest = await prisma.printRequest.create({
       data: requestData,
     });
 
-    // Send confirmation email
+    // Send confirmation email to requester
     try {
       await sendRequestConfirmation({
         id: newRequest.id,
@@ -57,8 +71,26 @@ export async function POST(request: NextRequest) {
       // Don't fail the request if email fails
     }
 
-    // If this is a work order request, send email to Mike and Gunner
-    if (newRequest.requestType === 'work_order') {
+    // Send notification to builder (nateg@cobramotorcycle.com) for all new requests
+    try {
+      await sendBuilderNotification({
+        id: newRequest.id,
+        partNumber: newRequest.partNumber,
+        description: newRequest.description || undefined,
+        quantity: newRequest.quantity,
+        deadline: newRequest.deadline || undefined,
+        requesterName: newRequest.requesterName,
+        requesterEmail: newRequest.requesterEmail,
+        status: newRequest.status,
+        fileName: newRequest.fileName || undefined,
+      }, true);
+    } catch (builderEmailError) {
+      console.error('Failed to send builder notification email:', builderEmailError);
+      // Don't fail the request if email fails
+    }
+
+    // If this is a work order request, send email to the appropriate person (Mike for Aero, Gunner for Moto)
+    if (newRequest.requestType === 'work_order' && newRequest.workOrderType) {
       try {
         await sendWorkOrderRequest({
           id: newRequest.id,
@@ -70,6 +102,7 @@ export async function POST(request: NextRequest) {
           requesterEmail: newRequest.requesterEmail,
           status: newRequest.status,
           fileName: newRequest.fileName || undefined,
+          workOrderType: newRequest.workOrderType,
         });
       } catch (workOrderEmailError) {
         console.error('Failed to send work order request email:', workOrderEmailError);

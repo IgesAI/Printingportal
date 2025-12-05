@@ -21,6 +21,8 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import SendIcon from '@mui/icons-material/Send';
 import BuildIcon from '@mui/icons-material/Build';
 import DescriptionIcon from '@mui/icons-material/Description';
+import FlightIcon from '@mui/icons-material/Flight';
+import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 import { useToast } from '@/lib/toast';
 
 export default function Home() {
@@ -32,6 +34,7 @@ export default function Home() {
     requesterName: '',
     requesterEmail: '',
     requestType: 'rd_parts' as 'rd_parts' | 'work_order',
+    workOrderType: null as 'aero' | 'moto' | null,
   });
 
   const [loading, setLoading] = useState(false);
@@ -46,6 +49,13 @@ export default function Home() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    
+    // Validate work order type is selected when request type is work_order
+    if (formData.requestType === 'work_order' && !formData.workOrderType) {
+      showToast('Please select Aero or Moto for work order requests', 'error');
+      return;
+    }
+    
     setLoading(true);
 
     try {
@@ -67,9 +77,10 @@ export default function Home() {
 
       if (response.ok) {
         const isWorkOrder = formData.requestType === 'work_order';
+        const recipient = formData.workOrderType === 'aero' ? 'Mike' : formData.workOrderType === 'moto' ? 'Gunner' : '';
         showToast(
           isWorkOrder
-            ? 'Request submitted! Work order notification sent to Mike and Gunner for approval.'
+            ? `Request submitted! Work order notification sent to ${recipient} for approval.`
             : 'Request submitted successfully! You will receive a confirmation email shortly.',
           'success'
         );
@@ -198,6 +209,10 @@ export default function Home() {
                     onChange={(_, newValue) => {
                       if (newValue !== null) {
                         handleInputChange('requestType', newValue);
+                        // Reset workOrderType when switching away from work_order
+                        if (newValue !== 'work_order') {
+                          handleInputChange('workOrderType', null);
+                        }
                       }
                     }}
                     aria-label="request type"
@@ -230,9 +245,44 @@ export default function Home() {
                     </ToggleButton>
                   </ToggleButtonGroup>
                   {formData.requestType === 'work_order' && (
-                    <Alert severity="info" sx={{ mt: 2 }}>
-                      This request will notify Mike and Gunner to create a work order.
-                    </Alert>
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="body2" sx={{ mb: 1, fontWeight: 'medium' }}>
+                        Select Work Order Type:
+                      </Typography>
+                      <ToggleButtonGroup
+                        value={formData.workOrderType}
+                        exclusive
+                        onChange={(e, newValue) => {
+                          if (newValue !== null) {
+                            handleInputChange('workOrderType', newValue);
+                          }
+                        }}
+                        aria-label="work order type"
+                        fullWidth
+                      >
+                        <ToggleButton 
+                          value="aero" 
+                          aria-label="Aero"
+                        >
+                          <FlightIcon sx={{ mr: 1 }} />
+                          <span>Aero (Mike)</span>
+                        </ToggleButton>
+                        <ToggleButton 
+                          value="moto" 
+                          aria-label="Moto"
+                        >
+                          <TwoWheelerIcon sx={{ mr: 1 }} />
+                          <span>Moto (Gunner)</span>
+                        </ToggleButton>
+                      </ToggleButtonGroup>
+                      <Alert severity="info" sx={{ mt: 2 }}>
+                        {formData.workOrderType === 'aero' 
+                          ? 'This request will notify Mike to create a work order for Aero.'
+                          : formData.workOrderType === 'moto'
+                          ? 'This request will notify Gunner to create a work order for Moto.'
+                          : 'Please select Aero or Moto to proceed.'}
+                      </Alert>
+                    </Box>
                   )}
                 </Box>
               </Grid>

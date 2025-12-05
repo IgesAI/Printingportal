@@ -22,6 +22,11 @@ enum RequestType {
   work_order
 }
 
+enum WorkOrderType {
+  aero
+  moto
+}
+
 model PrintRequest {
   id            String   @id @default(cuid())
   partNumber    String
@@ -30,6 +35,7 @@ model PrintRequest {
   deadline      DateTime?
   status        RequestStatus @default(pending)
   requestType   RequestType @default(rd_parts)
+  workOrderType WorkOrderType?  // Only used when requestType is work_order
   requesterName String
   requesterEmail String
 

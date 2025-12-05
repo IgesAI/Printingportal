@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { sendStatusUpdate } from '@/lib/email';
+import { sendStatusUpdate, sendBuilderNotification } from '@/lib/email';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -75,6 +75,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
     // Send status update email if status changed
     if (status && status !== oldStatus) {
+      // Send to requester
       try {
         await sendStatusUpdate({
           id: updatedRequest.id,
@@ -89,6 +90,24 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         }, oldStatus);
       } catch (emailError) {
         console.error('Failed to send status update email:', emailError);
+        // Don't fail the update if email fails
+      }
+
+      // Send to builder (nateg@cobramotorcycle.com)
+      try {
+        await sendBuilderNotification({
+          id: updatedRequest.id,
+          partNumber: updatedRequest.partNumber,
+          description: updatedRequest.description || undefined,
+          quantity: updatedRequest.quantity,
+          deadline: updatedRequest.deadline || undefined,
+          requesterName: updatedRequest.requesterName,
+          requesterEmail: updatedRequest.requesterEmail,
+          status: updatedRequest.status,
+          fileName: updatedRequest.fileName || undefined,
+        }, false);
+      } catch (builderEmailError) {
+        console.error('Failed to send builder status update email:', builderEmailError);
         // Don't fail the update if email fails
       }
     }
