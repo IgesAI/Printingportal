@@ -95,7 +95,8 @@ MAX_FILE_SIZE=104857600
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
 # Admin Authentication (for dashboard)
-ADMIN_PASSWORD="your-secure-password-here"
+ADMIN_PASSWORD="your-secure-password-here"  # REQUIRED - No default password
+JWT_SECRET="your-jwt-secret-key"  # Optional - defaults to ADMIN_PASSWORD if not set
 ```
 
 ## Usage
@@ -117,7 +118,12 @@ ADMIN_PASSWORD="your-secure-password-here"
 5. Delete requests (requires authentication)
 6. Changes trigger email notifications to requesters
 
-**Note**: The dashboard uses a simple password-based authentication system. Set the `ADMIN_PASSWORD` environment variable to secure your admin access. The default password is `admin123` - **change this in production!**
+**Security Note**: 
+- The dashboard uses JWT-based authentication with secure httpOnly cookies
+- **REQUIRED**: Set the `ADMIN_PASSWORD` environment variable - there is NO default password
+- Optional: Set `JWT_SECRET` for token signing (defaults to `ADMIN_PASSWORD` if not set)
+- All API routes are protected with server-side authentication checks
+- Rate limiting is enabled on the login endpoint (5 attempts per 15 minutes)
 
 ## API Endpoints
 

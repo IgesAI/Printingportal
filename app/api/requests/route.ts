@@ -90,7 +90,8 @@ export async function POST(request: NextRequest) {
     }
 
     // If this is a work order request, send email to the appropriate person (Mike for Aero, Gunner for Moto)
-    if (newRequest.requestType === 'work_order' && newRequest.workOrderType) {
+    const requestWorkOrderType = (newRequest as any).workOrderType;
+    if (newRequest.requestType === 'work_order' && requestWorkOrderType) {
       try {
         await sendWorkOrderRequest({
           id: newRequest.id,
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
           requesterEmail: newRequest.requesterEmail,
           status: newRequest.status,
           fileName: newRequest.fileName || undefined,
-          workOrderType: newRequest.workOrderType,
+          workOrderType: requestWorkOrderType as 'aero' | 'moto',
         });
       } catch (workOrderEmailError) {
         console.error('Failed to send work order request email:', workOrderEmailError);

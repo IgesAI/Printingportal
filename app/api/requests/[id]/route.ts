@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { sendStatusUpdate, sendBuilderNotification } from '@/lib/email';
+import { requireAuth } from '@/lib/auth-server';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -32,6 +33,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
 }
 
 export async function PUT(request: NextRequest, context: RouteContext) {
+  // Require authentication
+  const authError = requireAuth(request);
+  if (authError) {
+    return authError;
+  }
+
   try {
     const { id } = await context.params;
     const body = await request.json();
@@ -123,6 +130,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
+  // Require authentication
+  const authError = requireAuth(request);
+  if (authError) {
+    return authError;
+  }
+
   try {
     const { id } = await context.params;
 

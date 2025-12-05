@@ -28,13 +28,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(true);
 
-  // Check if user is already authenticated on mount
+  // Check if user is already authenticated on mount by verifying with server
   useEffect(() => {
-    const authStatus = localStorage.getItem('dashboard_auth');
-    if (authStatus === 'authenticated') {
-      setIsAuthenticated(true);
-    }
-    setChecking(false);
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/verify');
+        if (response.ok) {
+          const data = await response.json();
+          setIsAuthenticated(data.authenticated === true);
+        } else {
+          setIsAuthenticated(false);
+        }
+      } catch (err) {
+        setIsAuthenticated(false);
+      } finally {
+        setChecking(false);
+      }
+    };
+    checkAuth();
   }, []);
 
   const login = async (enteredPassword: string): Promise<boolean> => {
@@ -49,7 +60,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (response.ok) {
         setIsAuthenticated(true);
-        localStorage.setItem('dashboard_auth', 'authenticated');
         setLoginDialogOpen(false);
         setPassword('');
         setError('');
@@ -65,9 +75,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
     setIsAuthenticated(false);
-    localStorage.removeItem('dashboard_auth');
   };
 
   const showLoginDialog = () => {

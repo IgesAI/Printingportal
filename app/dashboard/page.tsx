@@ -249,6 +249,20 @@ export default function Dashboard() {
       );
 
       const results = await Promise.allSettled(updatePromises);
+      
+      // Check for authentication errors
+      const authErrors = results.filter((r) => 
+        r.status === 'fulfilled' && r.value.status === 401
+      );
+      
+      if (authErrors.length > 0) {
+        logout();
+        showLoginDialog();
+        showToast('Your session has expired. Please login again.', 'warning');
+        setBulkUpdating(false);
+        return;
+      }
+
       const failed = results.filter((r) => r.status === 'rejected').length;
 
       if (failed === 0) {
@@ -301,6 +315,12 @@ export default function Dashboard() {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          logout();
+          showLoginDialog();
+          showToast('Your session has expired. Please login again.', 'warning');
+          return;
+        }
         throw new Error('Failed to update request');
       }
 
@@ -337,6 +357,12 @@ export default function Dashboard() {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          logout();
+          showLoginDialog();
+          showToast('Your session has expired. Please login again.', 'warning');
+          return;
+        }
         throw new Error('Failed to delete request');
       }
 
@@ -369,6 +395,20 @@ export default function Dashboard() {
       );
 
       const results = await Promise.allSettled(deletePromises);
+      
+      // Check for authentication errors
+      const authErrors = results.filter((r) => 
+        r.status === 'fulfilled' && r.value.status === 401
+      );
+      
+      if (authErrors.length > 0) {
+        logout();
+        showLoginDialog();
+        showToast('Your session has expired. Please login again.', 'warning');
+        setDeleting(false);
+        return;
+      }
+
       const failed = results.filter((r) => r.status === 'rejected').length;
 
       if (failed === 0) {

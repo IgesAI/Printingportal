@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireAuth } from '@/lib/auth-server';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -8,6 +9,12 @@ type RouteContext = {
 };
 
 export async function GET(request: NextRequest, context: RouteContext) {
+  // Require authentication
+  const authError = requireAuth(request);
+  if (authError) {
+    return authError;
+  }
+
   try {
     const { id } = await context.params;
 
@@ -19,15 +26,27 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'File not found' }, { status: 404 });
     }
 
+    // SECURITY: Prevent path traversal attacks
+    // Resolve the path and ensure it's within the uploads directory
+    const uploadDir = process.env.UPLOAD_DIR || './public/uploads';
+    const resolvedUploadDir = path.resolve(process.cwd(), uploadDir);
+    const resolvedFilePath = path.resolve(process.cwd(), requestData.filePath);
+    
+    // Ensure the file path is within the uploads directory
+    if (!resolvedFilePath.startsWith(resolvedUploadDir)) {
+      console.error(`Path traversal attempt detected: ${requestData.filePath}`);
+      return NextResponse.json({ error: 'Invalid file path' }, { status: 403 });
+    }
+
     // Check if file exists
     try {
-      await fs.access(requestData.filePath);
+      await fs.access(resolvedFilePath);
     } catch {
       return NextResponse.json({ error: 'File not found on disk' }, { status: 404 });
     }
 
-    // Read file
-    const fileBuffer = await fs.readFile(requestData.filePath);
+    // Read file using the resolved path
+    const fileBuffer = await fs.readFile(resolvedFilePath);
     const fileExtension = path.extname(requestData.fileName).toLowerCase();
 
     // Determine content type
