@@ -8,7 +8,6 @@ import {
   TextField,
   Button,
   Box,
-  Alert,
   CircularProgress,
   Grid,
   ToggleButton,
@@ -21,6 +20,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import SendIcon from '@mui/icons-material/Send';
 import BuildIcon from '@mui/icons-material/Build';
 import DescriptionIcon from '@mui/icons-material/Description';
+import { useToast } from '@/lib/toast';
 
 export default function Home() {
   const [formData, setFormData] = useState({
@@ -34,7 +34,7 @@ export default function Home() {
   });
 
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const { showToast } = useToast();
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
@@ -46,7 +46,6 @@ export default function Home() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true);
-    setMessage(null);
 
     try {
       const submitData = new FormData();
@@ -67,12 +66,12 @@ export default function Home() {
 
       if (response.ok) {
         const isWorkOrder = formData.requestType === 'work_order';
-        setMessage({
-          type: 'success',
-          text: isWorkOrder 
-            ? '> Request submitted! Work order notification sent to Mike and Gunner for approval.'
-            : '> Request submitted successfully! You will receive a confirmation email shortly.',
-        });
+        showToast(
+          isWorkOrder
+            ? 'Request submitted! Work order notification sent to Mike and Gunner for approval.'
+            : 'Request submitted successfully! You will receive a confirmation email shortly.',
+          'success'
+        );
 
         // Reset form
         setFormData({
@@ -85,16 +84,10 @@ export default function Home() {
           requestType: 'rd_parts',
         });
       } else {
-        setMessage({
-          type: 'error',
-          text: `> Error: ${result.error || 'Failed to submit request. Please try again.'}`,
-        });
+        showToast(`Error: ${result.error || 'Failed to submit request. Please try again.'}`, 'error');
       }
     } catch (error) {
-      setMessage({
-        type: 'error',
-        text: '> Connection error. Please check your network and try again.',
-      });
+      showToast('Connection error. Please check your network and try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -112,7 +105,7 @@ export default function Home() {
               fontSize: { xs: '3px', sm: '5px', md: '6px', lg: '7px' },
               lineHeight: 1.1,
               color: 'primary.main',
-              textShadow: '0 0 10px #15ff00',
+              textShadow: '0 0 10px #00aaff',
               overflow: 'hidden',
               whiteSpace: 'pre',
               mb: 2,
@@ -189,18 +182,6 @@ export default function Home() {
           >
             {'>'} New Print Request_
           </Typography>
-
-          {message && (
-            <Alert 
-              severity={message.type} 
-              sx={{ 
-                mb: 3,
-                fontFamily: '"VT323", monospace',
-              }}
-            >
-              {message.text}
-            </Alert>
-          )}
 
           <Box component="form" onSubmit={handleSubmit}>
             <Grid container spacing={3}>

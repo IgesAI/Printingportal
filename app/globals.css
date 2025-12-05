@@ -7,13 +7,13 @@
 }
 
 :root {
-  --pip-green: #15ff00;
-  --pip-green-dark: #0a8f00;
-  --pip-green-glow: #00ff00;
-  --pip-green-dim: #0d4f00;
+  --pip-green: #00aaff;
+  --pip-green-dark: #0066aa;
+  --pip-green-glow: #0088ff;
+  --pip-green-dim: #003366;
   --pip-bg: #0a0a0a;
-  --pip-bg-lighter: #111411;
-  --pip-scanline: rgba(21, 255, 0, 0.03);
+  --pip-bg-lighter: #111419;
+  --pip-scanline: rgba(0, 170, 255, 0.03);
 }
 
 html,
@@ -35,7 +35,7 @@ body {
       var(--pip-scanline) 2px,
       var(--pip-scanline) 4px
     ),
-    radial-gradient(ellipse at center, #0d1a0d 0%, #050805 70%, #000000 100%);
+    radial-gradient(ellipse at center, #0d131a 0%, #05080a 70%, #000000 100%);
   background-attachment: fixed;
   min-height: 100vh;
   position: relative;

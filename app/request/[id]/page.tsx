@@ -12,9 +12,27 @@ import {
   Alert,
   Button,
   Divider,
+  Grid,
+  Card,
+  CardContent,
+  Skeleton,
+  Timeline,
+  TimelineItem,
+  TimelineSeparator,
+  TimelineConnector,
+  TimelineContent,
+  TimelineDot,
+  TimelineOppositeContent,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import DownloadIcon from '@mui/icons-material/Download';
+import BuildIcon from '@mui/icons-material/Build';
+import DescriptionIcon from '@mui/icons-material/Description';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import PendingIcon from '@mui/icons-material/Pending';
+import CancelIcon from '@mui/icons-material/Cancel';
 import Link from 'next/link';
+import { useToast } from '@/lib/toast';
 
 interface PrintRequest {
   id: string;
@@ -30,6 +48,9 @@ interface PrintRequest {
   updatedAt: string;
   completedAt: string | null;
   notes: string | null;
+  fileName?: string | null;
+  filePath?: string | null;
+  fileSize?: number | null;
 }
 
 const statusColors: Record<string, 'warning' | 'info' | 'success' | 'error'> = {
@@ -46,13 +67,22 @@ const statusLabels: Record<string, string> = {
   cancelled: 'Cancelled',
 };
 
+const formatFileSize = (bytes: number | null | undefined): string => {
+  if (!bytes) return 'Unknown size';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+};
+
 export default function RequestDetailPage() {
   const params = useParams();
   const id = params.id as string;
-  
+
   const [request, setRequest] = useState<PrintRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     const fetchRequest = async () => {
@@ -67,7 +97,9 @@ export default function RequestDetailPage() {
         const data = await response.json();
         setRequest(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+        setError(errorMessage);
+        showToast(errorMessage, 'error');
       } finally {
         setLoading(false);
       }
@@ -76,7 +108,36 @@ export default function RequestDetailPage() {
     if (id) {
       fetchRequest();
     }
-  }, [id]);
+  }, [id, showToast]);
+
+  const handleDownload = async () => {
+    if (!request?.filePath || !request?.fileName) return;
+
+    setDownloading(true);
+    try {
+      const response = await fetch(`/api/files/${id}`);
+      if (!response.ok) {
+        throw new Error('Failed to download file');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = request.fileName || 'file';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      showToast('File downloaded successfully', 'success');
+    } catch (err) {
+      showToast('Failed to download file', 'error');
+      console.error(err);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
@@ -97,12 +158,64 @@ export default function RequestDetailPage() {
     });
   };
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircleIcon />;
+      case 'cancelled':
+        return <CancelIcon />;
+      case 'in_progress':
+        return <BuildIcon />;
+      default:
+        return <PendingIcon />;
+    }
+  };
+
+  const getTimelineEvents = () => {
+    if (!request) return [];
+
+    const events = [
+      {
+        time: request.createdAt,
+        label: 'Request Submitted',
+        description: 'Request was created',
+        status: 'success',
+      },
+    ];
+
+    if (request.updatedAt !== request.createdAt) {
+      events.push({
+        time: request.updatedAt,
+        label: 'Last Updated',
+        description: 'Request was last modified',
+        status: 'info',
+      });
+    }
+
+    if (request.completedAt) {
+      events.push({
+        time: request.completedAt,
+        label: 'Completed',
+        description: 'Request was marked as completed',
+        status: 'success',
+      });
+    } else if (request.status === 'cancelled') {
+      events.push({
+        time: request.updatedAt,
+        label: 'Cancelled',
+        description: 'Request was cancelled',
+        status: 'error',
+      });
+    }
+
+    return events.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+  };
+
   if (loading) {
     return (
       <Container maxWidth="md" sx={{ py: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
+        <Skeleton variant="rectangular" height={400} sx={{ mb: 2 }} />
+        <Skeleton variant="rectangular" height={200} />
       </Container>
     );
   }
@@ -113,12 +226,7 @@ export default function RequestDetailPage() {
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
-        <Button
-          component={Link}
-          href="/"
-          startIcon={<ArrowBackIcon />}
-          variant="outlined"
-        >
+        <Button component={Link} href="/" startIcon={<ArrowBackIcon />} variant="outlined">
           Back to Portal
         </Button>
       </Container>
@@ -129,131 +237,214 @@ export default function RequestDetailPage() {
     return null;
   }
 
+  const timelineEvents = getTimelineEvents();
+  const isOverdue = request.deadline && new Date(request.deadline) < new Date() && request.status !== 'completed';
+
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
       <Box sx={{ mb: 3 }}>
-        <Button
-          component={Link}
-          href="/"
-          startIcon={<ArrowBackIcon />}
-          variant="outlined"
-          sx={{ mb: 2 }}
-        >
-          Back to Portal
+        <Button component={Link} href="/dashboard" startIcon={<ArrowBackIcon />} variant="outlined" sx={{ mb: 2 }}>
+          Back to Dashboard
         </Button>
       </Box>
 
-      <Paper sx={{ p: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-          <Typography variant="h4" component="h1">
-            Request Details
-          </Typography>
-          <Chip
-            label={statusLabels[request.status]}
-            color={statusColors[request.status]}
-            size="medium"
-          />
-        </Box>
+      <Grid container spacing={3}>
+        {/* Main Details */}
+        <Grid size={{ xs: 12, md: 8 }}>
+          <Paper sx={{ p: 4, mb: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+              <Box>
+                <Typography variant="h4" component="h1" gutterBottom>
+                  {request.partNumber}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Request ID: {request.id}
+                </Typography>
+              </Box>
+              <Chip label={statusLabels[request.status]} color={statusColors[request.status]} size="medium" />
+            </Box>
 
-        <Divider sx={{ mb: 3 }} />
+            <Divider sx={{ mb: 3 }} />
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 3 }}>
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Part Number
+            <Grid container spacing={3}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Card variant="outlined" sx={{ p: 2 }}>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Quantity
+                  </Typography>
+                  <Typography variant="h5">{request.quantity}</Typography>
+                </Card>
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Card variant="outlined" sx={{ p: 2 }}>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Request Type
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {request.requestType === 'work_order' ? (
+                      <DescriptionIcon sx={{ color: '#9c27b0' }} />
+                    ) : (
+                      <BuildIcon sx={{ color: 'primary.main' }} />
+                    )}
+                    <Typography variant="body1">
+                      {request.requestType === 'work_order' ? 'Work Order' : 'R&D / Prototype'}
+                    </Typography>
+                  </Box>
+                </Card>
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Card variant="outlined" sx={{ p: 2 }}>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Deadline
+                  </Typography>
+                  <Typography variant="body1" sx={{ color: isOverdue ? 'error.main' : 'inherit' }}>
+                    {formatDate(request.deadline)}
+                    {isOverdue && (
+                      <Chip label="Overdue" color="error" size="small" sx={{ ml: 1 }} />
+                    )}
+                  </Typography>
+                </Card>
+              </Grid>
+
+              {request.fileName && (
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Card variant="outlined" sx={{ p: 2 }}>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Attached File
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                      <Typography variant="body2" sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {request.fileName}
+                      </Typography>
+                      {request.fileSize && (
+                        <Typography variant="caption" color="text.secondary">
+                          ({formatFileSize(request.fileSize)})
+                        </Typography>
+                      )}
+                      <Button
+                        size="small"
+                        startIcon={<DownloadIcon />}
+                        onClick={handleDownload}
+                        disabled={downloading}
+                        variant="outlined"
+                      >
+                        {downloading ? 'Downloading...' : 'Download'}
+                      </Button>
+                    </Box>
+                  </Card>
+                </Grid>
+              )}
+
+              {request.description && (
+                <Grid size={12}>
+                  <Card variant="outlined" sx={{ p: 2 }}>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Description
+                    </Typography>
+                    <Typography variant="body1">{request.description}</Typography>
+                  </Card>
+                </Grid>
+              )}
+            </Grid>
+          </Paper>
+
+          {/* Timeline */}
+          <Paper sx={{ p: 4 }}>
+            <Typography variant="h6" gutterBottom>
+              Request Timeline
             </Typography>
-            <Typography variant="h6">{request.partNumber}</Typography>
-          </Box>
+            <Timeline>
+              {timelineEvents.map((event, index) => (
+                <TimelineItem key={index}>
+                  <TimelineOppositeContent sx={{ flex: 0.3 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {formatDateTime(event.time)}
+                    </Typography>
+                  </TimelineOppositeContent>
+                  <TimelineSeparator>
+                    <TimelineDot color={event.status as any}>{getStatusIcon(request.status)}</TimelineDot>
+                    {index < timelineEvents.length - 1 && <TimelineConnector />}
+                  </TimelineSeparator>
+                  <TimelineContent>
+                    <Typography variant="subtitle2">{event.label}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {event.description}
+                    </Typography>
+                  </TimelineContent>
+                </TimelineItem>
+              ))}
+            </Timeline>
+          </Paper>
+        </Grid>
 
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Quantity
+        {/* Sidebar */}
+        <Grid size={{ xs: 12, md: 4 }}>
+          {/* Requester Info */}
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Requester Information
             </Typography>
-            <Typography variant="h6">{request.quantity}</Typography>
-          </Box>
+            <Divider sx={{ mb: 2 }} />
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary">
+                Name
+              </Typography>
+              <Typography variant="body1">{request.requesterName}</Typography>
+            </Box>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary">
+                Email
+              </Typography>
+              <Typography variant="body1">
+                <a href={`mailto:${request.requesterEmail}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                  {request.requesterEmail}
+                </a>
+              </Typography>
+            </Box>
+          </Paper>
 
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Request Type
+          {/* Admin Notes */}
+          {request.notes && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Admin Notes
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <Typography variant="body2">{request.notes}</Typography>
+            </Paper>
+          )}
+
+          {/* Quick Stats */}
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Request Details
             </Typography>
-            <Chip
-              label={request.requestType === 'work_order' ? 'Work Order' : 'R&D / Prototype'}
-              color={request.requestType === 'work_order' ? 'secondary' : 'primary'}
-              size="small"
-            />
-          </Box>
-
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Deadline
-            </Typography>
-            <Typography variant="body1">{formatDate(request.deadline)}</Typography>
-          </Box>
-
-          <Box sx={{ gridColumn: { sm: '1 / -1' } }}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Description
-            </Typography>
-            <Typography variant="body1">
-              {request.description || 'No description provided'}
-            </Typography>
-          </Box>
-        </Box>
-
-        <Divider sx={{ my: 3 }} />
-
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          Requester Information
-        </Typography>
-
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 3 }}>
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Name
-            </Typography>
-            <Typography variant="body1">{request.requesterName}</Typography>
-          </Box>
-
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Email
-            </Typography>
-            <Typography variant="body1">{request.requesterEmail}</Typography>
-          </Box>
-        </Box>
-
-        <Divider sx={{ my: 3 }} />
-
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          Timeline
-        </Typography>
-
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 3 }}>
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Submitted
-            </Typography>
-            <Typography variant="body1">{formatDateTime(request.createdAt)}</Typography>
-          </Box>
-
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Last Updated
-            </Typography>
-            <Typography variant="body1">{formatDateTime(request.updatedAt)}</Typography>
-          </Box>
-
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Completed
-            </Typography>
-            <Typography variant="body1">
-              {request.completedAt ? formatDateTime(request.completedAt) : '-'}
-            </Typography>
-          </Box>
-        </Box>
-      </Paper>
+            <Divider sx={{ mb: 2 }} />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Submitted:
+              </Typography>
+              <Typography variant="body2">{formatDateTime(request.createdAt)}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Last Updated:
+              </Typography>
+              <Typography variant="body2">{formatDateTime(request.updatedAt)}</Typography>
+            </Box>
+            {request.completedAt && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="body2" color="text.secondary">
+                  Completed:
+                </Typography>
+                <Typography variant="body2">{formatDateTime(request.completedAt)}</Typography>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+      </Grid>
     </Container>
   );
 }
-

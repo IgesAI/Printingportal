@@ -159,6 +159,60 @@ The main `PrintRequest` table includes:
    npm run start
    ```
 
+### Deploying to Vercel
+
+1. **Connect your repository** to Vercel
+2. **Configure Environment Variables** in Vercel dashboard:
+   - Go to your project → Settings → Environment Variables
+   - Add the following required variables:
+
+   ```env
+   DATABASE_URL=your-production-database-url
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=your-email@gmail.com
+   SMTP_PASS=your-app-password
+   SMTP_FROM=noreply@yourdomain.com
+   NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+   ```
+
+3. **SMTP Configuration Options**:
+   
+   **Option 1: Gmail (Recommended for testing)**
+   - Use Gmail SMTP: `smtp.gmail.com`
+   - Port: `587`
+   - Enable 2-factor authentication
+   - Generate an App Password: [Google App Passwords](https://myaccount.google.com/apppasswords)
+   - Use the app password as `SMTP_PASS`
+
+   **Option 2: SendGrid (Recommended for production)**
+   - Sign up at [SendGrid](https://sendgrid.com)
+   - Create an API key
+   - Use: `SMTP_HOST=smtp.sendgrid.net`
+   - Use: `SMTP_PORT=587`
+   - Use: `SMTP_USER=apikey`
+   - Use: `SMTP_PASS=your-sendgrid-api-key`
+
+   **Option 3: Mailgun**
+   - Sign up at [Mailgun](https://www.mailgun.com)
+   - Use your SMTP credentials from the dashboard
+   - `SMTP_HOST=smtp.mailgun.org`
+   - `SMTP_PORT=587`
+
+   **Option 4: AWS SES**
+   - Configure AWS SES
+   - Use your SES SMTP endpoint
+   - `SMTP_HOST=email-smtp.region.amazonaws.com`
+   - `SMTP_PORT=587`
+
+4. **Important Notes**:
+   - ⚠️ **Never use localhost SMTP** (`127.0.0.1` or `localhost`) in production
+   - The application will now validate SMTP configuration and prevent localhost connections
+   - If SMTP is not configured, you'll get clear error messages
+   - Email failures won't break your application - they're logged but don't block requests
+
+5. **Deploy**: Push to your main branch or trigger a deployment manually
+
 ## Development
 
 ### Available Scripts
