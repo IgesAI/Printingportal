@@ -27,21 +27,36 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useToast } from '@/lib/toast';
 import { put as blobPut } from '@vercel/blob/client';
 
+type PartForm = {
+  id: string;
+  partNumber: string;
+  description: string;
+  quantity: number;
+  deadline: Date | null;
+  file: File | null;
+  fileError: string | null;
+};
+
 export default function Home() {
-  const [formData, setFormData] = useState({
-    partNumber: '',
-    description: '',
-    quantity: 1,
-    deadline: null as Date | null,
+  const [requestMeta, setRequestMeta] = useState({
     requesterName: '',
     requesterEmail: '',
     requestType: 'rd_parts' as 'rd_parts' | 'work_order',
     workOrderType: null as 'aero' | 'moto' | null,
   });
 
+  const makePart = (): PartForm => ({
+    id: crypto.randomUUID(),
+    partNumber: '',
+    description: '',
+    quantity: 1,
+    deadline: null,
+    file: null,
+    fileError: null,
+  });
+
+  const [parts, setParts] = useState<PartForm[]>([makePart()]);
   const [loading, setLoading] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
-  const [fileError, setFileError] = useState<string | null>(null);
   const { showToast } = useToast();
 
   const MAX_UPLOAD_MB =
@@ -59,106 +74,146 @@ export default function Home() {
     '.igs',
   ]);
 
-  const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({
+  const handleMetaChange = (field: string, value: any) => {
+    setRequestMeta(prev => ({
       ...prev,
       [field]: value,
     }));
+  };
+
+  const updatePart = (id: string, updater: (prev: PartForm) => PartForm) => {
+    setParts(prev =>
+      prev.map(part => (part.id === id ? updater(part) : part))
+    );
+  };
+
+  const addPart = () => {
+    if (parts.length >= 5) {
+      showToast('Limit 5 parts per submission. Please submit again for more.', 'warning');
+      return;
+    }
+    setParts(prev => [...prev, makePart()]);
+  };
+
+  const removePart = (id: string) => {
+    if (parts.length === 1) return;
+    setParts(prev => prev.filter(p => p.id !== id));
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     
     // Validate work order type is selected when request type is work_order
-    if (formData.requestType === 'work_order' && !formData.workOrderType) {
+    if (requestMeta.requestType === 'work_order' && !requestMeta.workOrderType) {
       showToast('Please select Aero or Moto for work order requests', 'error');
       return;
     }
 
-    if (fileError) {
-      showToast(fileError, 'error');
-      return;
+    // Validate parts
+    for (const part of parts) {
+      if (!part.partNumber.trim()) {
+        showToast('Each part needs a part number.', 'error');
+        return;
+      }
+      if (!part.quantity || part.quantity < 1) {
+        showToast('Each part needs a quantity of at least 1.', 'error');
+        return;
+      }
+      if (part.fileError) {
+        showToast(part.fileError, 'error');
+        return;
+      }
     }
     
     setLoading(true);
 
     try {
-      let uploadMeta: { fileUrl?: string; fileName?: string; fileSize?: number } = {};
+      let successCount = 0;
 
-      if (file) {
-        // Step 1: request a client token and pathname
-        const presignRes = await fetch('/api/uploads/presign', {
+      for (const part of parts) {
+        let uploadMeta: { fileUrl?: string; fileName?: string; fileSize?: number } = {};
+
+        if (part.file) {
+          // Step 1: request a client token and pathname
+          const presignRes = await fetch('/api/uploads/presign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileName: part.file.name, fileSize: part.file.size }),
+          });
+          const presign = await presignRes.json();
+          if (!presignRes.ok) {
+            throw new Error(presign.error || 'Failed to prepare upload');
+          }
+
+          // Step 2: upload directly to Blob using client token
+          const putResult = await blobPut(presign.pathname, part.file, {
+            token: presign.token,
+            access: 'public',
+            contentType: part.file.type || 'application/octet-stream',
+          });
+
+          uploadMeta = {
+            fileUrl: putResult.url,
+            fileName: part.file.name,
+            fileSize: part.file.size,
+          };
+        }
+
+        const submitData = new FormData();
+        // Shared fields
+        submitData.append('requesterName', requestMeta.requesterName);
+        submitData.append('requesterEmail', requestMeta.requesterEmail);
+        submitData.append('requestType', requestMeta.requestType);
+        if (requestMeta.requestType === 'work_order' && requestMeta.workOrderType) {
+          submitData.append('workOrderType', requestMeta.workOrderType);
+        }
+        // Part-specific fields
+        submitData.append('partNumber', part.partNumber);
+        if (part.description) submitData.append('description', part.description);
+        submitData.append('quantity', part.quantity.toString());
+        if (part.deadline) submitData.append('deadline', part.deadline.toISOString());
+
+        if (uploadMeta.fileUrl) {
+          submitData.append('fileUrl', uploadMeta.fileUrl);
+          submitData.append('fileName', uploadMeta.fileName || '');
+          submitData.append('fileSize', uploadMeta.fileSize?.toString() || '');
+        }
+
+        const response = await fetch('/api/requests', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fileName: file.name, fileSize: file.size }),
+          body: submitData,
         });
-        const presign = await presignRes.json();
-        if (!presignRes.ok) {
-          throw new Error(presign.error || 'Failed to prepare upload');
+
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to submit one of the requests.');
         }
-
-        // Step 2: upload directly to Blob using client token
-        const putResult = await blobPut(presign.pathname, file, {
-          token: presign.token,
-          access: 'public',
-          contentType: file.type || 'application/octet-stream',
-        });
-
-        uploadMeta = {
-          fileUrl: putResult.url,
-          fileName: file.name,
-          fileSize: file.size,
-        };
+        successCount += 1;
       }
 
-      const submitData = new FormData();
+      const isWorkOrder = requestMeta.requestType === 'work_order';
+      const recipient =
+        requestMeta.workOrderType === 'aero'
+          ? 'Mike'
+          : requestMeta.workOrderType === 'moto'
+            ? 'Gunner'
+            : '';
 
-      // Add form fields
-      Object.entries(formData).forEach(([key, value]) => {
-        if (value !== null && value !== '') {
-          submitData.append(key, value.toString());
-        }
+      showToast(
+        isWorkOrder
+          ? `Submitted ${successCount} request(s). Work order notification sent to ${recipient}.`
+          : `Submitted ${successCount} request(s). Confirmation email(s) sent.`,
+        'success'
+      );
+
+      // Reset form
+      setRequestMeta({
+        requesterName: '',
+        requesterEmail: '',
+        requestType: 'rd_parts',
+        workOrderType: null,
       });
-
-      if (uploadMeta.fileUrl) {
-        submitData.append('fileUrl', uploadMeta.fileUrl);
-        submitData.append('fileName', uploadMeta.fileName || '');
-        submitData.append('fileSize', uploadMeta.fileSize?.toString() || '');
-      }
-
-      const response = await fetch('/api/requests', {
-        method: 'POST',
-        body: submitData,
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        const isWorkOrder = formData.requestType === 'work_order';
-        const recipient = formData.workOrderType === 'aero' ? 'Mike' : formData.workOrderType === 'moto' ? 'Gunner' : '';
-        showToast(
-          isWorkOrder
-            ? `Request submitted! Work order notification sent to ${recipient} for approval.`
-            : 'Request submitted successfully! You will receive a confirmation email shortly.',
-          'success'
-        );
-
-        // Reset form
-        setFormData({
-          partNumber: '',
-          description: '',
-          quantity: 1,
-          deadline: null,
-          requesterName: '',
-          requesterEmail: '',
-          requestType: 'rd_parts',
-          workOrderType: null,
-        });
-        setFile(null);
-        setFileError(null);
-      } else {
-        showToast(`Error: ${result.error || 'Failed to submit request. Please try again.'}`, 'error');
-      }
+      setParts([makePart()]);
     } catch (error) {
       showToast('Connection error. Please check your network and try again.', 'error');
     } finally {
@@ -172,33 +227,34 @@ export default function Home() {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>, id: string) => {
     const selected = event.target.files?.[0];
 
-    if (!selected) {
-      setFile(null);
-      setFileError(null);
-      return;
-    }
+    updatePart(id, prev => {
+      if (!selected) {
+        return { ...prev, file: null, fileError: null };
+      }
 
-    const extension = `.${selected.name.split('.').pop()?.toLowerCase() || ''}`;
+      const extension = `.${selected.name.split('.').pop()?.toLowerCase() || ''}`;
 
-    if (!allowedExtensions.has(extension)) {
-      setFile(null);
-      setFileError(
-        'Unsupported file type. Allowed: STEP, SLDPRT/SLDASM, 3MF, STL, OBJ, IGES'
-      );
-      return;
-    }
+      if (!allowedExtensions.has(extension)) {
+        return {
+          ...prev,
+          file: null,
+          fileError: 'Unsupported file type. Allowed: STEP, SLDPRT/SLDASM, 3MF, STL, OBJ, IGES',
+        };
+      }
 
-    if (selected.size > MAX_UPLOAD_BYTES) {
-      setFile(null);
-      setFileError(`File is too large. Max allowed is ${MAX_UPLOAD_MB} MB.`);
-      return;
-    }
+      if (selected.size > MAX_UPLOAD_BYTES) {
+        return {
+          ...prev,
+          file: null,
+          fileError: `File is too large. Max allowed is ${MAX_UPLOAD_MB} MB.`,
+        };
+      }
 
-    setFile(selected);
-    setFileError(null);
+      return { ...prev, file: selected, fileError: null };
+    });
   };
 
   return (
@@ -300,14 +356,13 @@ export default function Home() {
                     {'>'} Select Request Type:
                   </Typography>
                   <ToggleButtonGroup
-                    value={formData.requestType}
+                    value={requestMeta.requestType}
                     exclusive
                     onChange={(_, newValue) => {
                       if (newValue !== null) {
-                        handleInputChange('requestType', newValue);
-                        // Reset workOrderType when switching away from work_order
+                        handleMetaChange('requestType', newValue);
                         if (newValue !== 'work_order') {
-                          handleInputChange('workOrderType', null);
+                          handleMetaChange('workOrderType', null);
                         }
                       }
                     }}
@@ -340,17 +395,17 @@ export default function Home() {
                       <span>Needs Work Order</span>
                     </ToggleButton>
                   </ToggleButtonGroup>
-                  {formData.requestType === 'work_order' && (
+                  {requestMeta.requestType === 'work_order' && (
                     <Box sx={{ mt: 2 }}>
                       <Typography variant="body2" sx={{ mb: 1, fontWeight: 'medium' }}>
                         Select Work Order Type:
                       </Typography>
                       <ToggleButtonGroup
-                        value={formData.workOrderType}
+                        value={requestMeta.workOrderType}
                         exclusive
                         onChange={(e, newValue) => {
                           if (newValue !== null) {
-                            handleInputChange('workOrderType', newValue);
+                            handleMetaChange('workOrderType', newValue);
                           }
                         }}
                         aria-label="work order type"
@@ -372,9 +427,9 @@ export default function Home() {
                         </ToggleButton>
                       </ToggleButtonGroup>
                       <Alert severity="info" sx={{ mt: 2 }}>
-                        {formData.workOrderType === 'aero' 
+                        {requestMeta.workOrderType === 'aero' 
                           ? 'This request will notify Mike to create a work order for Aero.'
-                          : formData.workOrderType === 'moto'
+                          : requestMeta.workOrderType === 'moto'
                           ? 'This request will notify Gunner to create a work order for Moto.'
                           : 'Please select Aero or Moto to proceed.'}
                       </Alert>
@@ -383,126 +438,162 @@ export default function Home() {
                 </Box>
               </Grid>
 
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Part Number"
-                  value={formData.partNumber}
-                  onChange={(e) => handleInputChange('partNumber', e.target.value)}
-                  required
-                  variant="outlined"
-                  placeholder="e.g., CA-3D-001"
-                  helperText="Enter the part number or identifier"
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Quantity"
-                  type="number"
-                  value={formData.quantity}
-                  onChange={(e) => handleInputChange('quantity', Math.max(1, parseInt(e.target.value) || 1))}
-                  required
-                  inputProps={{ min: 1 }}
-                  variant="outlined"
-                  helperText="How many do you need?"
-                />
-              </Grid>
-
               <Grid size={12}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 1,
-                    border: '1px dashed',
-                    borderColor: 'divider',
-                    borderRadius: 1,
-                    p: 2,
-                    bgcolor: 'background.default',
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                    <UploadFileIcon color="primary" />
-                    <Typography variant="subtitle1">
-                      Attach CAD file (optional)
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Accepted: STEP (.step/.stp), SolidWorks (.sldprt/.sldasm), 3MF, STL, OBJ, IGES. Max {MAX_UPLOAD_MB} MB.
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, gap: 1 }}>
+                  <Typography variant="subtitle1" sx={{ color: 'text.secondary' }}>
+                    {'>'} Parts
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                    <Button variant="outlined" component="label" startIcon={<UploadFileIcon />}>
-                      {file ? 'Change File' : 'Choose File'}
-                      <input
-                        type="file"
-                        hidden
-                        onChange={handleFileChange}
-                        accept=".step,.stp,.sldprt,.sldasm,.3mf,.stl,.obj,.iges,.igs"
-                      />
-                    </Button>
-                    {file && (
-                      <>
-                        <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
-                          {file.name} ({formatFileSize(file.size)})
-                        </Typography>
-                        <Button
-                          size="small"
-                          color="secondary"
-                          onClick={() => {
-                            setFile(null);
-                            setFileError(null);
-                          }}
-                        >
-                          Remove
-                        </Button>
-                      </>
-                    )}
-                  </Box>
-                  {fileError && (
-                    <Alert severity="error" sx={{ mt: 1 }}>
-                      {fileError}
-                    </Alert>
-                  )}
+                  <Button variant="outlined" size="small" onClick={addPart}>
+                    Add another part
+                  </Button>
                 </Box>
               </Grid>
 
-              <Grid size={12}>
-                <TextField
-                  fullWidth
-                  label="Description / Notes"
-                  multiline
-                  rows={3}
-                  value={formData.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  placeholder="Material preferences, special requirements, etc."
-                  variant="outlined"
-                  helperText="Any additional details about the print (optional)"
-                />
-              </Grid>
+              {parts.map((part, idx) => (
+                <Grid key={part.id} size={12}>
+                  <Paper variant="outlined" sx={{ p: 2, mb: 1, borderRadius: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 1, flexWrap: 'wrap' }}>
+                      <Typography variant="subtitle1">Part {idx + 1}</Typography>
+                      {parts.length > 1 && (
+                        <Button size="small" color="secondary" onClick={() => removePart(part.id)}>
+                          Remove
+                        </Button>
+                      )}
+                    </Box>
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField
+                          fullWidth
+                          label="Part Number"
+                          value={part.partNumber}
+                          onChange={(e) =>
+                            updatePart(part.id, prev => ({ ...prev, partNumber: e.target.value }))
+                          }
+                          required
+                          variant="outlined"
+                          placeholder="e.g., CA-3D-001"
+                          helperText="Enter the part number or identifier"
+                        />
+                      </Grid>
 
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <DatePicker
-                  label="Needed By (Optional)"
-                  value={formData.deadline}
-                  onChange={(date) => handleInputChange('deadline', date)}
-                  slotProps={{
-                    textField: {
-                      fullWidth: true,
-                      variant: 'outlined',
-                      helperText: 'When do you need this completed?',
-                    },
-                  }}
-                />
-              </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField
+                          fullWidth
+                          label="Quantity"
+                          type="number"
+                          value={part.quantity}
+                          onChange={(e) =>
+                            updatePart(part.id, prev => ({
+                              ...prev,
+                              quantity: Math.max(1, parseInt(e.target.value) || 1),
+                            }))
+                          }
+                          required
+                          inputProps={{ min: 1 }}
+                          variant="outlined"
+                          helperText="How many do you need?"
+                        />
+                      </Grid>
+
+                      <Grid size={12}>
+                        <Paper
+                          variant="outlined"
+                          sx={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 1,
+                            borderRadius: 2,
+                            p: 2,
+                            bgcolor: 'background.paper',
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                            <UploadFileIcon sx={{ color: 'primary.main' }} />
+                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                              Attach CAD file (optional)
+                            </Typography>
+                          </Box>
+                          <Typography variant="body2" color="text.secondary">
+                            Accepted: STEP (.step/.stp), SolidWorks (.sldprt/.sldasm), 3MF, STL, OBJ, IGES. Max {MAX_UPLOAD_MB} MB.
+                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                            <Button variant="outlined" component="label" startIcon={<UploadFileIcon />}>
+                              {part.file ? 'Change File' : 'Choose File'}
+                              <input
+                                type="file"
+                                hidden
+                                onChange={(e) => handleFileChange(e, part.id)}
+                                accept=".step,.stp,.sldprt,.sldasm,.3mf,.stl,.obj,.iges,.igs"
+                              />
+                            </Button>
+                            {part.file && (
+                              <>
+                                <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
+                                  {part.file.name} ({formatFileSize(part.file.size)})
+                                </Typography>
+                                <Button
+                                  size="small"
+                                  color="secondary"
+                                  onClick={() =>
+                                    updatePart(part.id, prev => ({ ...prev, file: null, fileError: null }))
+                                  }
+                                >
+                                  Remove
+                                </Button>
+                              </>
+                            )}
+                          </Box>
+                          {part.fileError && (
+                            <Alert severity="error" sx={{ mt: 1 }}>
+                              {part.fileError}
+                            </Alert>
+                          )}
+                        </Paper>
+                      </Grid>
+
+                      <Grid size={12}>
+                        <TextField
+                          fullWidth
+                          label="Description / Notes"
+                          multiline
+                          rows={3}
+                          value={part.description}
+                          onChange={(e) =>
+                            updatePart(part.id, prev => ({ ...prev, description: e.target.value }))
+                          }
+                          placeholder="Material preferences, special requirements, etc."
+                          variant="outlined"
+                          helperText="Any additional details about the print (optional)"
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <DatePicker
+                          label="Needed By (Optional)"
+                          value={part.deadline}
+                          onChange={(date) =>
+                            updatePart(part.id, prev => ({ ...prev, deadline: date }))
+                          }
+                          slotProps={{
+                            textField: {
+                              fullWidth: true,
+                              variant: 'outlined',
+                              helperText: 'When do you need this completed?',
+                            },
+                          }}
+                        />
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                </Grid>
+              ))}
 
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="Your Name"
-                  value={formData.requesterName}
-                  onChange={(e) => handleInputChange('requesterName', e.target.value)}
+                  value={requestMeta.requesterName}
+                  onChange={(e) => handleMetaChange('requesterName', e.target.value)}
                   required
                   variant="outlined"
                   placeholder="John Smith"
@@ -515,8 +606,8 @@ export default function Home() {
                   fullWidth
                   label="Email Address"
                   type="email"
-                  value={formData.requesterEmail}
-                  onChange={(e) => handleInputChange('requesterEmail', e.target.value)}
+                  value={requestMeta.requesterEmail}
+                  onChange={(e) => handleMetaChange('requesterEmail', e.target.value)}
                   required
                   variant="outlined"
                   placeholder="john@cobra-aero.com"
