@@ -32,9 +32,9 @@ services:
       SMTP_USER: "your-email@gmail.com"
       SMTP_PASS: "your-app-password"
       SMTP_FROM: "noreply@printingportal.com"
-      # File upload settings
-      UPLOAD_DIR: "./public/uploads"
-      MAX_FILE_SIZE: 104857600
+      # File upload settings (Vercel Blob token required; local runs can skip if not uploading)
+      BLOB_READ_WRITE_TOKEN: "${BLOB_READ_WRITE_TOKEN}"
+      MAX_UPLOAD_MB: 200
     volumes:
       - uploads:/app/public/uploads
     depends_on:

@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { sendStatusUpdate, sendBuilderNotification } from '@/lib/email';
 import { requireAuth } from '@/lib/auth-server';
+import { del } from '@vercel/blob';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
+
+export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
@@ -151,13 +154,15 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       );
     }
 
-    // Delete associated file if it exists
+    // Delete associated blob if it exists
     if (requestData.filePath) {
       try {
-        const fs = require('fs').promises;
-        await fs.unlink(requestData.filePath);
+        const blobPath = requestData.filePath.startsWith('http')
+          ? new URL(requestData.filePath).pathname
+          : requestData.filePath;
+        await del(blobPath, { token: process.env.BLOB_READ_WRITE_TOKEN! });
       } catch (fileError) {
-        console.warn('Failed to delete file:', fileError);
+        console.warn('Failed to delete blob:', fileError);
       }
     }
 

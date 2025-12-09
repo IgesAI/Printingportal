@@ -87,9 +87,11 @@ SMTP_USER="your-email@gmail.com"
 SMTP_PASS="your-app-password"
 SMTP_FROM="noreply@printingportal.com"
 
-# File Upload Configuration
-UPLOAD_DIR="./public/uploads"
-MAX_FILE_SIZE=104857600
+# File Upload Configuration (Vercel Blob)
+# These are examples; set in Vercel Project Settings and .env.local
+BLOB_READ_WRITE_TOKEN=your-blob-token
+MAX_UPLOAD_MB=200
+NEXT_PUBLIC_MAX_UPLOAD_MB=200
 
 # Application
 NEXT_PUBLIC_APP_URL="http://localhost:3000"

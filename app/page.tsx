@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, ChangeEvent } from 'react';
 import {
   Container,
   Paper,
@@ -23,6 +23,7 @@ import BuildIcon from '@mui/icons-material/Build';
 import DescriptionIcon from '@mui/icons-material/Description';
 import FlightIcon from '@mui/icons-material/Flight';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useToast } from '@/lib/toast';
 
 export default function Home() {
@@ -38,7 +39,24 @@ export default function Home() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  const MAX_UPLOAD_MB =
+    Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB || 200) || 200;
+  const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
+  const allowedExtensions = new Set([
+    '.stl',
+    '.step',
+    '.stp',
+    '.sldprt',
+    '.sldasm',
+    '.3mf',
+    '.obj',
+    '.iges',
+    '.igs',
+  ]);
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
@@ -55,10 +73,46 @@ export default function Home() {
       showToast('Please select Aero or Moto for work order requests', 'error');
       return;
     }
+
+    if (fileError) {
+      showToast(fileError, 'error');
+      return;
+    }
     
     setLoading(true);
 
     try {
+      let uploadMeta: { fileUrl?: string; fileName?: string; fileSize?: number } = {};
+
+      if (file) {
+        // Step 1: presign
+        const presignRes = await fetch('/api/uploads/presign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileName: file.name, fileSize: file.size }),
+        });
+        const presign = await presignRes.json();
+        if (!presignRes.ok) {
+          throw new Error(presign.error || 'Failed to prepare upload');
+        }
+
+        // Step 2: upload directly to Blob
+        const putRes = await fetch(presign.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: file,
+        });
+        if (!putRes.ok) {
+          throw new Error('File upload failed');
+        }
+
+        uploadMeta = {
+          fileUrl: presign.blobPath,
+          fileName: file.name,
+          fileSize: file.size,
+        };
+      }
+
       const submitData = new FormData();
 
       // Add form fields
@@ -67,6 +121,12 @@ export default function Home() {
           submitData.append(key, value.toString());
         }
       });
+
+      if (uploadMeta.fileUrl) {
+        submitData.append('fileUrl', uploadMeta.fileUrl);
+        submitData.append('fileName', uploadMeta.fileName || '');
+        submitData.append('fileSize', uploadMeta.fileSize?.toString() || '');
+      }
 
       const response = await fetch('/api/requests', {
         method: 'POST',
@@ -96,6 +156,8 @@ export default function Home() {
           requestType: 'rd_parts',
           workOrderType: null,
         });
+        setFile(null);
+        setFileError(null);
       } else {
         showToast(`Error: ${result.error || 'Failed to submit request. Please try again.'}`, 'error');
       }
@@ -104,6 +166,41 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const selected = event.target.files?.[0];
+
+    if (!selected) {
+      setFile(null);
+      setFileError(null);
+      return;
+    }
+
+    const extension = `.${selected.name.split('.').pop()?.toLowerCase() || ''}`;
+
+    if (!allowedExtensions.has(extension)) {
+      setFile(null);
+      setFileError(
+        'Unsupported file type. Allowed: STEP, SLDPRT/SLDASM, 3MF, STL, OBJ, IGES'
+      );
+      return;
+    }
+
+    if (selected.size > MAX_UPLOAD_BYTES) {
+      setFile(null);
+      setFileError(`File is too large. Max allowed is ${MAX_UPLOAD_MB} MB.`);
+      return;
+    }
+
+    setFile(selected);
+    setFileError(null);
   };
 
   return (
@@ -313,6 +410,64 @@ export default function Home() {
                   variant="outlined"
                   helperText="How many do you need?"
                 />
+              </Grid>
+
+              <Grid size={12}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1,
+                    border: '1px dashed',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    p: 2,
+                    bgcolor: 'background.default',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <UploadFileIcon color="primary" />
+                    <Typography variant="subtitle1">
+                      Attach CAD file (optional)
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Accepted: STEP (.step/.stp), SolidWorks (.sldprt/.sldasm), 3MF, STL, OBJ, IGES. Max {MAX_UPLOAD_MB} MB.
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                    <Button variant="outlined" component="label" startIcon={<UploadFileIcon />}>
+                      {file ? 'Change File' : 'Choose File'}
+                      <input
+                        type="file"
+                        hidden
+                        onChange={handleFileChange}
+                        accept=".step,.stp,.sldprt,.sldasm,.3mf,.stl,.obj,.iges,.igs"
+                      />
+                    </Button>
+                    {file && (
+                      <>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
+                          {file.name} ({formatFileSize(file.size)})
+                        </Typography>
+                        <Button
+                          size="small"
+                          color="secondary"
+                          onClick={() => {
+                            setFile(null);
+                            setFileError(null);
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </>
+                    )}
+                  </Box>
+                  {fileError && (
+                    <Alert severity="error" sx={{ mt: 1 }}>
+                      {fileError}
+                    </Alert>
+                  )}
+                </Box>
               </Grid>
 
               <Grid size={12}>

@@ -3,6 +3,16 @@ import { prisma } from '@/lib/db';
 import { sendRequestConfirmation, sendWorkOrderRequest, sendBuilderNotification } from '@/lib/email';
 import { Prisma } from '@prisma/client';
 
+export const runtime = 'nodejs';
+
+const parsedUploadLimit = Number(process.env.MAX_UPLOAD_MB);
+const MAX_UPLOAD_BYTES =
+  (Number.isFinite(parsedUploadLimit) && parsedUploadLimit > 0
+    ? parsedUploadLimit
+    : 200) *
+  1024 *
+  1024;
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -16,6 +26,9 @@ export async function POST(request: NextRequest) {
     const requesterEmail = formData.get('requesterEmail') as string;
     const requestType = (formData.get('requestType') as string) || 'rd_parts';
     const workOrderType = formData.get('workOrderType') as string | null;
+    const fileUrl = formData.get('fileUrl') as string | null;
+    const fileNameField = formData.get('fileName') as string | null;
+    const fileSizeField = formData.get('fileSize') as string | null;
 
     // Validate required fields
     if (!partNumber || !quantity || !requesterName || !requesterEmail) {
@@ -33,6 +46,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Handle optional uploaded metadata (from Vercel Blob presign flow)
+    let uploadMeta:
+      | { fileName: string; filePath: string; fileSize: number }
+      | null = null;
+
+    if (fileUrl || fileNameField || fileSizeField) {
+      if (!fileUrl || !fileNameField || !fileSizeField) {
+        return NextResponse.json(
+          { error: 'fileUrl, fileName, and fileSize must all be provided for file uploads' },
+          { status: 400 }
+        );
+      }
+      const parsedSize = Number(fileSizeField);
+      if (!Number.isFinite(parsedSize)) {
+        return NextResponse.json({ error: 'Invalid fileSize' }, { status: 400 });
+      }
+      if (parsedSize > MAX_UPLOAD_BYTES) {
+        return NextResponse.json(
+          { error: `File too large. Max allowed is ${Math.floor(MAX_UPLOAD_BYTES / (1024 * 1024))}MB` },
+          { status: 400 }
+        );
+      }
+      uploadMeta = {
+        fileName: fileNameField,
+        filePath: fileUrl,
+        fileSize: parsedSize,
+      };
+    }
+
     // Create the request in database
     const requestData: any = {
       partNumber,
@@ -47,6 +89,12 @@ export async function POST(request: NextRequest) {
     // Only add workOrderType if it's a work_order request
     if (requestType === 'work_order' && workOrderType) {
       requestData.workOrderType = workOrderType as 'aero' | 'moto';
+    }
+
+    if (uploadMeta) {
+      requestData.fileName = uploadMeta.fileName;
+      requestData.filePath = uploadMeta.filePath;
+      requestData.fileSize = uploadMeta.fileSize;
     }
 
     const newRequest = await prisma.printRequest.create({
