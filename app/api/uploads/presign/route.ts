@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createPresignedUrl } from '@vercel/blob';
 import crypto from 'crypto';
+import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
 
 export const runtime = 'nodejs';
 
@@ -37,15 +37,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { url: uploadUrl, pathname } = await createPresignedUrl({
+    const pathname = `uploads/${Date.now()}-${crypto.randomUUID()}-${fileName}`;
+
+    const clientToken = await generateClientTokenFromReadWriteToken({
       token: process.env.BLOB_READ_WRITE_TOKEN!,
-      pathname: `uploads/${Date.now()}-${crypto.randomUUID()}-${fileName}`,
-      expiresIn: 60 * 10,
-      contentType: 'application/octet-stream',
-      mode: 'upload',
+      pathname,
+      maximumSizeInBytes: maxBytes,
+      allowedContentTypes: ['application/octet-stream', 'application/zip', 'model/step', 'model/stl', 'application/vnd.ms-pki.stl'],
+      addRandomSuffix: false,
     });
 
-    return NextResponse.json({ uploadUrl, blobPath: pathname });
+    return NextResponse.json({ pathname, token: clientToken });
   } catch (err) {
     console.error('presign error', err);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });

@@ -25,6 +25,7 @@ import FlightIcon from '@mui/icons-material/Flight';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useToast } from '@/lib/toast';
+import { put as blobPut } from '@vercel/blob/client';
 
 export default function Home() {
   const [formData, setFormData] = useState({
@@ -85,7 +86,7 @@ export default function Home() {
       let uploadMeta: { fileUrl?: string; fileName?: string; fileSize?: number } = {};
 
       if (file) {
-        // Step 1: presign
+        // Step 1: request a client token and pathname
         const presignRes = await fetch('/api/uploads/presign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -96,18 +97,15 @@ export default function Home() {
           throw new Error(presign.error || 'Failed to prepare upload');
         }
 
-        // Step 2: upload directly to Blob
-        const putRes = await fetch(presign.uploadUrl, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/octet-stream' },
-          body: file,
+        // Step 2: upload directly to Blob using client token
+        const putResult = await blobPut(presign.pathname, file, {
+          token: presign.token,
+          access: 'public',
+          contentType: file.type || 'application/octet-stream',
         });
-        if (!putRes.ok) {
-          throw new Error('File upload failed');
-        }
 
         uploadMeta = {
-          fileUrl: presign.blobPath,
+          fileUrl: putResult.url,
           fileName: file.name,
           fileSize: file.size,
         };

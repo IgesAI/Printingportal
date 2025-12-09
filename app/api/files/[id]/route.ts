@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireAuth } from '@/lib/auth-server';
-import { createPresignedUrl } from '@vercel/blob';
 
 export const runtime = 'nodejs';
 
@@ -27,17 +26,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'File not found' }, { status: 404 });
     }
 
-    const isFullUrl = requestData.filePath.startsWith('http');
-    const blobPath = isFullUrl ? new URL(requestData.filePath).pathname : requestData.filePath;
+    const targetUrl = requestData.filePath.startsWith('http')
+      ? requestData.filePath
+      : requestData.filePath;
 
-    const { url: signedUrl } = await createPresignedUrl({
-      token: process.env.BLOB_READ_WRITE_TOKEN!,
-      pathname: blobPath,
-      expiresIn: 60 * 5,
-      mode: 'read',
-    });
-
-    return NextResponse.redirect(signedUrl);
+    return NextResponse.redirect(targetUrl);
   } catch (error) {
     console.error('Error downloading file:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
