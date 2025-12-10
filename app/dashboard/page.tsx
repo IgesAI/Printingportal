@@ -111,6 +111,20 @@ export default function Dashboard() {
   
   const { showToast } = useToast();
   const { isAuthenticated, showLoginDialog, logout } = useAuth();
+  const [accent, setAccent] = useState<'blue' | 'red' | 'green' | 'yellow'>('blue');
+
+  useEffect(() => {
+    const colors: Record<typeof accent, string> = {
+      blue: '#00aaff',
+      red: '#ff5252',
+      green: '#4caf50',
+      yellow: '#fdd835',
+    };
+    document.documentElement.style.setProperty('--terminal-accent', colors[accent]);
+  }, [accent]);
+
+  const accentColor = 'var(--terminal-accent, #00aaff)';
+  const accentGlow = '0 0 12px var(--terminal-accent, #00aaff)';
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -509,7 +523,80 @@ export default function Dashboard() {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Container
+      maxWidth="xl"
+      sx={{
+        py: 4,
+        position: 'relative',
+        '& ::selection': {
+          backgroundColor: 'rgba(0,255,255,0.15)',
+          color: accentColor,
+        },
+      }}
+    >
+      {/* Accent toggle */}
+      <Box
+        sx={{
+          position: 'fixed',
+          top: 16,
+          right: 16,
+          zIndex: 12,
+          bgcolor: 'background.paper',
+          border: '1px solid',
+          borderColor: accentColor,
+          borderRadius: 2,
+          px: 1.5,
+          py: 1,
+          boxShadow: accentGlow,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+        }}
+      >
+        <Typography variant="caption" sx={{ fontWeight: 600 }}>
+          Terminal Color
+        </Typography>
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={accent}
+          onChange={(_, value) => value && setAccent(value)}
+          sx={{
+            '& .MuiToggleButton-root': {
+              px: 1,
+              borderRadius: 1,
+              minWidth: 36,
+              borderColor: accentColor,
+              color: accentColor,
+              '&.Mui-selected': {
+                backgroundColor: 'rgba(0,255,255,0.08)',
+                boxShadow: accentGlow,
+              },
+              '&:hover': { borderColor: accentColor, boxShadow: accentGlow },
+            },
+          }}
+        >
+          {[
+            { value: 'blue', color: '#00aaff' },
+            { value: 'red', color: '#ff5252' },
+            { value: 'green', color: '#4caf50' },
+            { value: 'yellow', color: '#fdd835' },
+          ].map((opt) => (
+            <ToggleButton key={opt.value} value={opt.value} aria-label={opt.value}>
+              <Box
+                sx={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: '50%',
+                  bgcolor: opt.color,
+                  boxShadow: `0 0 8px ${opt.color}`,
+                }}
+              />
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+      </Box>
+
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4, flexWrap: 'wrap', gap: 2 }}>
         <Box>
@@ -535,6 +622,11 @@ export default function Dashboard() {
               startIcon={<LockOpenIcon />}
               onClick={logout}
               color="success"
+              sx={{
+                borderColor: accentColor,
+                color: accentColor,
+                '&:hover': { borderColor: accentColor, boxShadow: accentGlow },
+              }}
             >
               Logout
             </Button>
@@ -544,14 +636,41 @@ export default function Dashboard() {
               startIcon={<LockIcon />}
               onClick={showLoginDialog}
               color="warning"
+              sx={{
+                borderColor: accentColor,
+                color: accentColor,
+                '&:hover': { borderColor: accentColor, boxShadow: accentGlow },
+              }}
             >
               Login to Edit
             </Button>
           )}
-          <Button variant="outlined" startIcon={<HomeIcon />} component={Link} href="/">
+          <Button
+            variant="outlined"
+            startIcon={<HomeIcon />}
+            component={Link}
+            href="/"
+            sx={{
+              borderColor: accentColor,
+              color: accentColor,
+              '&:hover': { borderColor: accentColor, boxShadow: accentGlow },
+            }}
+          >
             Back to Portal
           </Button>
-          <Button variant="contained" startIcon={<RefreshIcon />} onClick={fetchRequests} disabled={loading}>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={fetchRequests}
+            disabled={loading}
+            sx={{
+              borderColor: accentColor,
+              color: accentColor,
+              boxShadow: accentGlow,
+              '&:hover': { borderColor: accentColor, boxShadow: accentGlow, backgroundColor: 'rgba(0,255,255,0.08)' },
+              '&.Mui-disabled': { borderColor: 'divider', color: 'text.disabled', boxShadow: 'none' },
+            }}
+          >
             Refresh
           </Button>
         </Box>
@@ -560,7 +679,7 @@ export default function Dashboard() {
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
-          <Card>
+          <Card sx={{ border: '1px solid', borderColor: accentColor, boxShadow: accentGlow }}>
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
                 Total Requests
@@ -574,7 +693,7 @@ export default function Dashboard() {
           </Card>
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
-          <Card sx={{ borderLeft: '4px solid #ff9800' }}>
+          <Card sx={{ border: '1px solid', borderColor: accentColor, boxShadow: accentGlow }}>
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
                 Pending
@@ -590,7 +709,7 @@ export default function Dashboard() {
           </Card>
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
-          <Card sx={{ borderLeft: '4px solid #2196f3' }}>
+          <Card sx={{ border: '1px solid', borderColor: accentColor, boxShadow: accentGlow }}>
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
                 In Progress
@@ -606,7 +725,7 @@ export default function Dashboard() {
           </Card>
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
-          <Card sx={{ borderLeft: '4px solid #4caf50' }}>
+          <Card sx={{ border: '1px solid', borderColor: accentColor, boxShadow: accentGlow }}>
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
                 Completed
@@ -622,7 +741,7 @@ export default function Dashboard() {
           </Card>
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
-          <Card sx={{ borderLeft: '4px solid #9c27b0' }}>
+          <Card sx={{ border: '1px solid', borderColor: accentColor, boxShadow: accentGlow }}>
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
                 Work Orders
@@ -640,7 +759,7 @@ export default function Dashboard() {
       </Grid>
 
       {/* Search and Filters */}
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Paper sx={{ p: 2, mb: 3, border: '1px solid', borderColor: accentColor, boxShadow: accentGlow }}>
         <Grid container spacing={2} alignItems="center">
           <Grid size={{ xs: 12, md: 4 }}>
             <TextField
@@ -683,32 +802,54 @@ export default function Dashboard() {
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               {selectedIds.size > 0 && (
                 <>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => {
-                      if (!isAuthenticated) {
-                        showLoginDialog();
-                        return;
-                      }
-                      setBulkActionDialog(true);
-                    }}
-                    disabled={bulkUpdating || !isAuthenticated}
-                  >
-                    Update Status ({selectedIds.size})
-                  </Button>
-                  <Button 
-                    variant="outlined" 
-                    color="error" 
-                    size="small" 
-                    onClick={handleBulkDelete} 
-                    disabled={deleting || !isAuthenticated}
-                  >
-                    Delete ({selectedIds.size})
-                  </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    showLoginDialog();
+                    return;
+                  }
+                  setBulkActionDialog(true);
+                }}
+                disabled={bulkUpdating || !isAuthenticated}
+                sx={{
+                  borderColor: accentColor,
+                  color: accentColor,
+                  '&:hover': { borderColor: accentColor, boxShadow: accentGlow },
+                  '&.Mui-disabled': { borderColor: 'divider', color: 'text.disabled', boxShadow: 'none' },
+                }}
+              >
+                Update Status ({selectedIds.size})
+              </Button>
+              <Button 
+                variant="outlined" 
+                color="error" 
+                size="small" 
+                onClick={handleBulkDelete} 
+                disabled={deleting || !isAuthenticated}
+                sx={{
+                  borderColor: accentColor,
+                  color: accentColor,
+                  '&:hover': { borderColor: accentColor, boxShadow: accentGlow, backgroundColor: 'rgba(255,82,82,0.08)' },
+                  '&.Mui-disabled': { borderColor: 'divider', color: 'text.disabled', boxShadow: 'none' },
+                }}
+              >
+                Delete ({selectedIds.size})
+              </Button>
                 </>
               )}
-              <Button variant="contained" startIcon={<DownloadIcon />} onClick={handleExportCSV}>
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={handleExportCSV}
+                sx={{
+                  borderColor: accentColor,
+                  color: accentColor,
+                  boxShadow: accentGlow,
+                  '&:hover': { borderColor: accentColor, boxShadow: accentGlow, backgroundColor: 'rgba(0,255,255,0.08)' },
+                }}
+              >
                 Export CSV
               </Button>
             </Box>
@@ -723,7 +864,7 @@ export default function Dashboard() {
       )}
 
       {/* Requests Table */}
-      <Paper sx={{ overflow: 'hidden' }}>
+      <Paper sx={{ overflow: 'hidden', border: '1px solid', borderColor: accentColor, boxShadow: accentGlow }}>
         <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
           <Typography variant="h5">
             {'>'} All Requests_ ({filteredAndSortedRequests.length})
@@ -822,9 +963,9 @@ export default function Dashboard() {
                         component={Link}
                         href={`/request/${request.id}`}
                         sx={{
-                          color: 'primary.main',
+                          color: accentColor,
                           textDecoration: 'none',
-                          '&:hover': { textDecoration: 'underline' },
+                          '&:hover': { textDecoration: 'underline', textShadow: accentGlow },
                         }}
                       >
                         {request.partNumber}
@@ -985,7 +1126,16 @@ export default function Dashboard() {
           </FormControl>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setBulkActionDialog(false)} disabled={bulkUpdating}>
+          <Button
+            onClick={() => setBulkActionDialog(false)}
+            disabled={bulkUpdating}
+            sx={{
+              borderColor: accentColor,
+              color: accentColor,
+              border: '1px solid',
+              '&:hover': { borderColor: accentColor, boxShadow: accentGlow },
+            }}
+          >
             Cancel
           </Button>
           <Button
@@ -993,6 +1143,12 @@ export default function Dashboard() {
             variant="contained"
             disabled={!bulkStatus || bulkUpdating}
             startIcon={bulkUpdating ? <CircularProgress size={20} /> : null}
+            sx={{
+              backgroundColor: accentColor,
+              boxShadow: accentGlow,
+              '&:hover': { backgroundColor: accentColor, boxShadow: accentGlow, filter: 'brightness(1.05)' },
+              '&.Mui-disabled': { boxShadow: 'none' },
+            }}
           >
             {bulkUpdating ? 'Updating...' : 'Update'}
           </Button>
@@ -1011,7 +1167,16 @@ export default function Dashboard() {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleDeleteClose} disabled={deleting}>
+          <Button
+            onClick={handleDeleteClose}
+            disabled={deleting}
+            sx={{
+              borderColor: accentColor,
+              color: accentColor,
+              border: '1px solid',
+              '&:hover': { borderColor: accentColor, boxShadow: accentGlow },
+            }}
+          >
             Cancel
           </Button>
           <Button
@@ -1020,6 +1185,12 @@ export default function Dashboard() {
             variant="contained"
             disabled={deleting}
             startIcon={deleting ? <CircularProgress size={20} /> : null}
+            sx={{
+              backgroundColor: accentColor,
+              boxShadow: accentGlow,
+              '&:hover': { backgroundColor: accentColor, boxShadow: accentGlow, filter: 'brightness(1.05)' },
+              '&.Mui-disabled': { boxShadow: 'none' },
+            }}
           >
             {deleting ? 'Deleting...' : 'Delete'}
           </Button>
@@ -1028,7 +1199,7 @@ export default function Dashboard() {
 
       {/* Footer */}
       <Box sx={{ mt: 4, textAlign: 'center' }}>
-        <Divider sx={{ mb: 2, borderColor: 'primary.main', opacity: 0.3 }} />
+        <Divider sx={{ mb: 2, borderColor: accentColor, opacity: 0.3, boxShadow: accentGlow }} />
         <Typography variant="body2" color="text.secondary">
           TERMINAL STATUS: ONLINE | SYSTEM INTEGRITY: 100%
         </Typography>
