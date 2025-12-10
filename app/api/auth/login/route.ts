@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAuthToken, setAuthCookie } from '@/lib/auth-server';
+import { createAuthToken, setAuthCookie, ensureSameOrigin } from '@/lib/auth-server';
 import { checkRateLimit, getClientIdentifier } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
+    const originError = ensureSameOrigin(request);
+    if (originError) return originError;
+
     // Rate limiting: 5 attempts per 15 minutes per IP
     const clientId = getClientIdentifier(request);
     const rateLimit = checkRateLimit(`login:${clientId}`, 5, 15 * 60 * 1000);

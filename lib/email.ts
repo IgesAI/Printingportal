@@ -1,5 +1,15 @@
 import * as nodemailer from 'nodemailer';
 
+const escapeHtml = (value: string | undefined | null) => {
+  if (!value) return '';
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
 // Validate SMTP configuration
 function getTransporter() {
   const smtpHost = process.env.SMTP_HOST;
@@ -50,23 +60,30 @@ export async function sendRequestConfirmation(requestData: EmailRequestData): Pr
     const transporter = getTransporter();
     const subject = `3D Print Request Confirmation - ${requestData.partNumber}`;
 
+    const safePart = escapeHtml(requestData.partNumber);
+    const safeQty = escapeHtml(String(requestData.quantity));
+    const safeDesc = escapeHtml(requestData.description);
+    const safeDeadline = requestData.deadline ? escapeHtml(new Date(requestData.deadline).toLocaleDateString()) : '';
+    const safeFile = escapeHtml(requestData.fileName);
+    const safeName = escapeHtml(requestData.requesterName);
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">3D Print Request Confirmation</h2>
-        <p>Hi ${requestData.requesterName},</p>
+        <p>Hi ${safeName},</p>
         <p>Your 3D print request has been successfully submitted. Here are the details:</p>
 
         <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
           <h3>Request Details:</h3>
-          <p><strong>Part Number:</strong> ${requestData.partNumber}</p>
-          <p><strong>Quantity:</strong> ${requestData.quantity}</p>
-          ${requestData.description ? `<p><strong>Description:</strong> ${requestData.description}</p>` : ''}
-          ${requestData.deadline ? `<p><strong>Deadline:</strong> ${new Date(requestData.deadline).toLocaleDateString()}</p>` : ''}
-          ${requestData.fileName ? `<p><strong>File:</strong> ${requestData.fileName}</p>` : ''}
-          <p><strong>Status:</strong> ${requestData.status}</p>
+          <p><strong>Part Number:</strong> ${safePart}</p>
+          <p><strong>Quantity:</strong> ${safeQty}</p>
+          ${requestData.description ? `<p><strong>Description:</strong> ${safeDesc}</p>` : ''}
+          ${requestData.deadline ? `<p><strong>Deadline:</strong> ${safeDeadline}</p>` : ''}
+          ${requestData.fileName ? `<p><strong>File:</strong> ${safeFile}</p>` : ''}
+          <p><strong>Status:</strong> ${escapeHtml(requestData.status)}</p>
         </div>
 
-        <p>You can track the progress of your request at: <a href="${process.env.NEXT_PUBLIC_APP_URL}/requests/${requestData.id}">View Request</a></p>
+        <p>You can track the progress of your request at: <a href="${process.env.NEXT_PUBLIC_APP_URL}/request/${requestData.id}">View Request</a></p>
 
         <p>Thank you for using our 3D printing service!</p>
       </div>
@@ -89,23 +106,29 @@ export async function sendStatusUpdate(requestData: EmailRequestData, oldStatus:
     const transporter = getTransporter();
     const subject = `3D Print Request Status Update - ${requestData.partNumber}`;
 
+    const safePart = escapeHtml(requestData.partNumber);
+    const safeQty = escapeHtml(String(requestData.quantity));
+    const safeDesc = escapeHtml(requestData.description);
+    const safeDeadline = requestData.deadline ? escapeHtml(new Date(requestData.deadline).toLocaleDateString()) : '';
+    const safeName = escapeHtml(requestData.requesterName);
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">3D Print Request Status Update</h2>
-        <p>Hi ${requestData.requesterName},</p>
+        <p>Hi ${safeName},</p>
         <p>The status of your 3D print request has been updated:</p>
 
         <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
           <h3>Request Details:</h3>
-          <p><strong>Part Number:</strong> ${requestData.partNumber}</p>
-          <p><strong>Quantity:</strong> ${requestData.quantity}</p>
-          ${requestData.description ? `<p><strong>Description:</strong> ${requestData.description}</p>` : ''}
-          <p><strong>Previous Status:</strong> ${oldStatus}</p>
-          <p><strong>New Status:</strong> ${requestData.status}</p>
-          ${requestData.deadline ? `<p><strong>Deadline:</strong> ${new Date(requestData.deadline).toLocaleDateString()}</p>` : ''}
+          <p><strong>Part Number:</strong> ${safePart}</p>
+          <p><strong>Quantity:</strong> ${safeQty}</p>
+          ${requestData.description ? `<p><strong>Description:</strong> ${safeDesc}</p>` : ''}
+          <p><strong>Previous Status:</strong> ${escapeHtml(oldStatus)}</p>
+          <p><strong>New Status:</strong> ${escapeHtml(requestData.status)}</p>
+          ${requestData.deadline ? `<p><strong>Deadline:</strong> ${safeDeadline}</p>` : ''}
         </div>
 
-        <p>You can track the progress of your request at: <a href="${process.env.NEXT_PUBLIC_APP_URL}/requests/${requestData.id}">View Request</a></p>
+        <p>You can track the progress of your request at: <a href="${process.env.NEXT_PUBLIC_APP_URL}/request/${requestData.id}">View Request</a></p>
 
         <p>Best regards,<br>3D Print Team</p>
       </div>
@@ -130,6 +153,15 @@ export async function sendBuilderNotification(requestData: EmailRequestData, isN
       ? `New 3D Print Request - ${requestData.partNumber}`
       : `3D Print Request Status Update - ${requestData.partNumber}`;
 
+    const safePart = escapeHtml(requestData.partNumber);
+    const safeQty = escapeHtml(String(requestData.quantity));
+    const safeDesc = escapeHtml(requestData.description);
+    const safeDeadline = requestData.deadline ? escapeHtml(new Date(requestData.deadline).toLocaleDateString()) : '';
+    const safeFile = escapeHtml(requestData.fileName);
+    const safeStatus = escapeHtml(requestData.status);
+    const safeName = escapeHtml(requestData.requesterName);
+    const safeEmail = escapeHtml(requestData.requesterEmail);
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">${isNewRequest ? 'New 3D Print Request' : '3D Print Request Status Update'}</h2>
@@ -140,41 +172,41 @@ export async function sendBuilderNotification(requestData: EmailRequestData, isN
           <table style="width: 100%; border-collapse: collapse;">
             <tr>
               <td style="padding: 8px 0; font-weight: bold; width: 140px;">Part Number:</td>
-              <td style="padding: 8px 0;">${requestData.partNumber}</td>
+              <td style="padding: 8px 0;">${safePart}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; font-weight: bold;">Quantity:</td>
-              <td style="padding: 8px 0;">${requestData.quantity}</td>
+              <td style="padding: 8px 0;">${safeQty}</td>
             </tr>
             ${requestData.description ? `
             <tr>
               <td style="padding: 8px 0; font-weight: bold;">Description:</td>
-              <td style="padding: 8px 0;">${requestData.description}</td>
+              <td style="padding: 8px 0;">${safeDesc}</td>
             </tr>
             ` : ''}
             ${requestData.deadline ? `
             <tr>
               <td style="padding: 8px 0; font-weight: bold;">Deadline:</td>
-              <td style="padding: 8px 0;">${new Date(requestData.deadline).toLocaleDateString()}</td>
+              <td style="padding: 8px 0;">${safeDeadline}</td>
             </tr>
             ` : ''}
             ${requestData.fileName ? `
             <tr>
               <td style="padding: 8px 0; font-weight: bold;">File Attached:</td>
-              <td style="padding: 8px 0;">${requestData.fileName}</td>
+              <td style="padding: 8px 0;">${safeFile}</td>
             </tr>
             ` : ''}
             <tr>
               <td style="padding: 8px 0; font-weight: bold;">Status:</td>
-              <td style="padding: 8px 0;">${requestData.status}</td>
+              <td style="padding: 8px 0;">${safeStatus}</td>
             </tr>
           </table>
         </div>
 
         <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <h4 style="margin-top: 0;">Requester Information:</h4>
-          <p style="margin: 5px 0;"><strong>Name:</strong> ${requestData.requesterName}</p>
-          <p style="margin: 5px 0;"><strong>Email:</strong> ${requestData.requesterEmail}</p>
+          <p style="margin: 5px 0;"><strong>Name:</strong> ${safeName}</p>
+          <p style="margin: 5px 0;"><strong>Email:</strong> ${safeEmail}</p>
         </div>
 
         <p style="margin-top: 20px;">

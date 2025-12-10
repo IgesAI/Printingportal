@@ -61,7 +61,7 @@ interface PrintRequest {
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   requestType: 'rd_parts' | 'work_order';
   requesterName: string;
-  requesterEmail: string;
+  requesterEmail?: string | null;
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;
@@ -840,7 +840,7 @@ export default function Dashboard() {
                     <TableCell>
                       <Typography variant="body2">{request.requesterName}</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {request.requesterEmail}
+                        {request.requesterEmail || 'Hidden'}
                       </Typography>
                     </TableCell>
                     <TableCell>{formatDateTime(request.createdAt)}</TableCell>

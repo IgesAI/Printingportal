@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { sendRequestConfirmation, sendWorkOrderRequest, sendBuilderNotification } from '@/lib/email';
 import { Prisma } from '@prisma/client';
+import { checkRateLimit, getClientIdentifier } from '@/lib/rate-limit';
+import { isRequestAuthenticated } from '@/lib/auth-server';
 
 export const runtime = 'nodejs';
 
@@ -15,20 +17,45 @@ const MAX_UPLOAD_BYTES =
 
 export async function POST(request: NextRequest) {
   try {
+    const rate = checkRateLimit(`create:${getClientIdentifier(request)}`, 20, 15 * 60 * 1000);
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { error: 'Too many submissions. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
+    const validateEmail = (email: string) =>
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+    const cleanText = (value: string | null, max = 500) => {
+      if (!value) return null;
+      return value.replace(/\s+/g, ' ').trim().slice(0, max);
+    };
+
     const formData = await request.formData();
 
     // Extract basic fields
-    const partNumber = formData.get('partNumber') as string;
-    const description = formData.get('description') as string;
+    const partNumberRaw = formData.get('partNumber') as string;
+    const descriptionRaw = formData.get('description') as string;
     const quantity = parseInt(formData.get('quantity') as string);
-    const deadline = formData.get('deadline') as string;
-    const requesterName = formData.get('requesterName') as string;
-    const requesterEmail = formData.get('requesterEmail') as string;
+    const deadlineRaw = formData.get('deadline') as string;
+    const requesterNameRaw = formData.get('requesterName') as string;
+    const requesterEmailRaw = formData.get('requesterEmail') as string;
     const requestType = (formData.get('requestType') as string) || 'rd_parts';
     const workOrderType = formData.get('workOrderType') as string | null;
     const fileUrl = formData.get('fileUrl') as string | null;
     const fileNameField = formData.get('fileName') as string | null;
     const fileSizeField = formData.get('fileSize') as string | null;
+
+    const partNumber = cleanText(partNumberRaw, 120);
+    const description = cleanText(descriptionRaw, 2000);
+    const requesterName = cleanText(requesterNameRaw, 120);
+    const requesterEmail = requesterEmailRaw?.trim();
+    const deadline = deadlineRaw?.trim();
+    const deadlineDate = deadline ? new Date(deadline) : null;
+    if (deadline && Number.isNaN(deadlineDate?.getTime?.())) {
+      return NextResponse.json({ error: 'Invalid deadline date' }, { status: 400 });
+    }
 
     // Validate required fields
     if (!partNumber || !quantity || !requesterName || !requesterEmail) {
@@ -36,6 +63,14 @@ export async function POST(request: NextRequest) {
         { error: 'Missing required fields' },
         { status: 400 }
       );
+    }
+
+    if (!validateEmail(requesterEmail)) {
+      return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
+    }
+
+    if (quantity < 1 || quantity > 100000) {
+      return NextResponse.json({ error: 'Quantity must be between 1 and 100000' }, { status: 400 });
     }
 
     // Validate workOrderType is provided when requestType is work_order
@@ -69,7 +104,7 @@ export async function POST(request: NextRequest) {
         );
       }
       uploadMeta = {
-        fileName: fileNameField,
+        fileName: cleanText(fileNameField.split(/[/\\]/).pop() || fileNameField, 255) || '',
         filePath: fileUrl,
         fileSize: parsedSize,
       };
@@ -80,7 +115,7 @@ export async function POST(request: NextRequest) {
       partNumber,
       description: description || null,
       quantity,
-      deadline: deadline ? new Date(deadline) : null,
+      deadline: deadlineDate,
       requesterName,
       requesterEmail,
       requestType: requestType as 'rd_parts' | 'work_order',
@@ -171,6 +206,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const isAuthed = isRequestAuthenticated(request);
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const requesterEmail = searchParams.get('requesterEmail');
@@ -214,7 +250,16 @@ export async function GET(request: NextRequest) {
       orderBy,
     });
 
-    return NextResponse.json(requests);
+    const sanitized = isAuthed
+      ? requests
+      : requests.map((req) => ({
+          ...req,
+          requesterEmail: undefined,
+          notes: undefined,
+          filePath: undefined,
+        }));
+
+    return NextResponse.json(sanitized);
   } catch (error) {
     console.error('Error fetching requests:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

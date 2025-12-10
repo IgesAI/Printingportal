@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
+import { checkRateLimit, getClientIdentifier } from '@/lib/rate-limit';
+import { ensureSameOrigin } from '@/lib/auth-server';
 
 export const runtime = 'nodejs';
 
@@ -18,6 +20,26 @@ const ALLOWED = new Set([
 
 export async function POST(req: NextRequest) {
   try {
+    const originError = ensureSameOrigin(req);
+    if (originError) return originError;
+
+    const clientId = `presign:${getClientIdentifier(req)}`;
+    const rate = checkRateLimit(clientId, 20, 15 * 60 * 1000);
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { error: 'Too many upload attempts. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
+    const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+    if (!blobToken) {
+      return NextResponse.json(
+        { error: 'Upload service not configured. Please contact an admin.' },
+        { status: 500 }
+      );
+    }
+
     const { fileName, fileSize } = await req.json();
 
     if (!fileName || !fileSize) {
@@ -40,7 +62,7 @@ export async function POST(req: NextRequest) {
     const pathname = `uploads/${Date.now()}-${crypto.randomUUID()}-${fileName}`;
 
     const clientToken = await generateClientTokenFromReadWriteToken({
-      token: process.env.BLOB_READ_WRITE_TOKEN!,
+      token: blobToken,
       pathname,
       maximumSizeInBytes: maxBytes,
       allowedContentTypes: ['application/octet-stream', 'application/zip', 'model/step', 'model/stl', 'application/vnd.ms-pki.stl'],

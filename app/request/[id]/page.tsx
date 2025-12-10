@@ -36,7 +36,7 @@ interface PrintRequest {
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   requestType: 'rd_parts' | 'work_order';
   requesterName: string;
-  requesterEmail: string;
+  requesterEmail?: string | null;
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;
@@ -433,11 +433,15 @@ export default function RequestDetailPage() {
               <Typography variant="subtitle2" color="text.secondary">
                 Email
               </Typography>
-              <Typography variant="body1">
-                <a href={`mailto:${request.requesterEmail}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                  {request.requesterEmail}
-                </a>
-              </Typography>
+          <Typography variant="body1">
+            {request.requesterEmail ? (
+              <a href={`mailto:${request.requesterEmail}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                {request.requesterEmail}
+              </a>
+            ) : (
+              'Hidden'
+            )}
+          </Typography>
             </Box>
           </Paper>
 

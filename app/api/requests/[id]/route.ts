@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { sendStatusUpdate, sendBuilderNotification } from '@/lib/email';
 import { requireAuth } from '@/lib/auth-server';
 import { del } from '@vercel/blob';
+import { isRequestAuthenticated } from '@/lib/auth-server';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -25,7 +26,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
       );
     }
 
-    return NextResponse.json(requestData);
+    const isAuthed = isRequestAuthenticated(request);
+    const sanitized = isAuthed
+      ? requestData
+      : {
+          ...requestData,
+          requesterEmail: undefined,
+          notes: undefined,
+          filePath: undefined,
+        };
+
+    return NextResponse.json(sanitized);
   } catch (error) {
     console.error('Error fetching request:', error);
     return NextResponse.json(
