@@ -147,7 +147,7 @@ export default function Dashboard() {
         (req) =>
           req.partNumber.toLowerCase().includes(query) ||
           req.requesterName.toLowerCase().includes(query) ||
-          req.requesterEmail.toLowerCase().includes(query) ||
+          (req.requesterEmail || '').toLowerCase().includes(query) ||
           (req.description && req.description.toLowerCase().includes(query))
       );
     }
