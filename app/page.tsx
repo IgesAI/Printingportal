@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, ChangeEvent } from 'react';
+import { useState, ChangeEvent, useEffect } from 'react';
 import {
   Container,
   Paper,
@@ -44,6 +44,7 @@ export default function Home() {
     requestType: 'rd_parts' as 'rd_parts' | 'work_order',
     workOrderType: null as 'aero' | 'moto' | null,
   });
+  const [accent, setAccent] = useState<'blue' | 'red' | 'green' | 'yellow'>('blue');
 
   const makePart = (): PartForm => ({
     id: crypto.randomUUID(),
@@ -58,6 +59,16 @@ export default function Home() {
   const [parts, setParts] = useState<PartForm[]>([makePart()]);
   const [loading, setLoading] = useState(false);
   const { showToast } = useToast();
+
+  useEffect(() => {
+    const colors: Record<typeof accent, string> = {
+      blue: '#00aaff',
+      red: '#ff5252',
+      green: '#4caf50',
+      yellow: '#fdd835',
+    };
+    document.documentElement.style.setProperty('--terminal-accent', colors[accent]);
+  }, [accent]);
 
   const MAX_UPLOAD_MB =
     Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB || 200) || 200;
@@ -260,6 +271,62 @@ export default function Home() {
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Container maxWidth="md" sx={{ py: 4 }}>
+        {/* Accent toggle */}
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 16,
+            right: 16,
+            zIndex: 10,
+            bgcolor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+            px: 1.5,
+            py: 1,
+            boxShadow: 2,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+          }}
+        >
+          <Typography variant="caption" sx={{ fontWeight: 600 }}>
+            Terminal Color
+          </Typography>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={accent}
+            onChange={(_, value) => value && setAccent(value)}
+            sx={{
+              '& .MuiToggleButton-root': {
+                px: 1,
+                borderRadius: 1,
+                minWidth: 36,
+              },
+            }}
+          >
+            {[
+              { value: 'blue', color: '#00aaff' },
+              { value: 'red', color: '#ff5252' },
+              { value: 'green', color: '#4caf50' },
+              { value: 'yellow', color: '#fdd835' },
+            ].map((opt) => (
+              <ToggleButton key={opt.value} value={opt.value} aria-label={opt.value}>
+                <Box
+                  sx={{
+                    width: 14,
+                    height: 14,
+                    borderRadius: '50%',
+                    bgcolor: opt.color,
+                    boxShadow: `0 0 8px ${opt.color}`,
+                  }}
+                />
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        </Box>
+
         {/* Terminal Header with ASCII Art Logo */}
         <Box sx={{ textAlign: 'center', mb: 4 }}>
           <Box 
@@ -268,8 +335,8 @@ export default function Home() {
               fontFamily: 'monospace',
               fontSize: { xs: '3px', sm: '5px', md: '6px', lg: '7px' },
               lineHeight: 1.1,
-              color: 'primary.main',
-              textShadow: '0 0 10px #00aaff',
+              color: 'var(--terminal-accent, #00aaff)',
+              textShadow: '0 0 10px var(--terminal-accent, #00aaff)',
               overflow: 'hidden',
               whiteSpace: 'pre',
               mb: 2,
@@ -339,7 +406,7 @@ export default function Home() {
             gutterBottom 
             sx={{ 
               borderBottom: '1px solid',
-              borderColor: 'primary.main',
+              borderColor: 'var(--terminal-accent, #00aaff)',
               pb: 1,
               mb: 3,
             }}
@@ -505,10 +572,11 @@ export default function Home() {
                             borderRadius: 2,
                             p: 2,
                             bgcolor: 'background.paper',
+                            borderColor: 'var(--terminal-accent, #00aaff)',
                           }}
                         >
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                            <UploadFileIcon sx={{ color: 'primary.main' }} />
+                            <UploadFileIcon sx={{ color: 'var(--terminal-accent, #00aaff)' }} />
                             <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                               Attach CAD file (optional)
                             </Typography>
@@ -648,7 +716,7 @@ export default function Home() {
 
         {/* Terminal footer */}
         <Box sx={{ mt: 4, textAlign: 'center' }}>
-          <Divider sx={{ mb: 2, borderColor: 'primary.main', opacity: 0.3 }} />
+            <Divider sx={{ mb: 2, borderColor: 'var(--terminal-accent, #00aaff)', opacity: 0.3 }} />
           <Typography variant="body2" color="text.secondary">
             TERMINAL STATUS: ONLINE | SYSTEM INTEGRITY: 100%
           </Typography>
