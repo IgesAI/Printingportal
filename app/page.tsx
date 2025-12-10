@@ -758,7 +758,7 @@ export default function Home() {
             <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
               <Button
                 type="submit"
-                variant="contained"
+                variant="outlined"
                 size="large"
                 startIcon={loading ? <CircularProgress size={20} /> : <SendIcon />}
                 disabled={loading}
@@ -766,13 +766,15 @@ export default function Home() {
                   minWidth: 250, 
                   py: 2,
                   fontSize: '1.3rem',
-                  backgroundColor: accentColor,
+                  borderColor: accentColor,
+                  color: accentColor,
                   boxShadow: accentGlow,
                   '&:hover': {
-                    backgroundColor: accentColor,
+                    borderColor: accentColor,
                     boxShadow: accentGlow,
-                    filter: 'brightness(1.05)',
+                    backgroundColor: 'rgba(0,255,255,0.08)',
                   },
+                  '&.Mui-disabled': { borderColor: 'divider', color: 'text.disabled', boxShadow: 'none' },
                 }}
               >
                 {loading ? 'Submitting...' : 'Submit Request'}
