@@ -238,6 +238,9 @@ export default function Home() {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
+  const accentColor = 'var(--terminal-accent, #00aaff)';
+  const accentGlow = '0 0 12px var(--terminal-accent, #00aaff)';
+
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>, id: string) => {
     const selected = event.target.files?.[0];
 
@@ -270,7 +273,17 @@ export default function Home() {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Container maxWidth="md" sx={{ py: 4 }}>
+      <Container
+        maxWidth="md"
+        sx={{
+          py: 4,
+          position: 'relative',
+          '& ::selection': {
+            backgroundColor: 'rgba(0,255,255,0.15)',
+            color: accentColor,
+          },
+        }}
+      >
         {/* Accent toggle */}
         <Box
           sx={{
@@ -280,11 +293,11 @@ export default function Home() {
             zIndex: 10,
             bgcolor: 'background.paper',
             border: '1px solid',
-            borderColor: 'divider',
+            borderColor: accentColor,
             borderRadius: 2,
             px: 1.5,
             py: 1,
-            boxShadow: 2,
+            boxShadow: accentGlow,
             display: 'flex',
             alignItems: 'center',
             gap: 1,
@@ -335,8 +348,8 @@ export default function Home() {
               fontFamily: 'monospace',
               fontSize: { xs: '3px', sm: '5px', md: '6px', lg: '7px' },
               lineHeight: 1.1,
-              color: 'var(--terminal-accent, #00aaff)',
-              textShadow: '0 0 10px var(--terminal-accent, #00aaff)',
+              color: accentColor,
+              textShadow: accentGlow,
               overflow: 'hidden',
               whiteSpace: 'pre',
               mb: 2,
@@ -399,6 +412,9 @@ export default function Home() {
             p: 4, 
             position: 'relative',
             overflow: 'hidden',
+            border: '1px solid',
+            borderColor: accentColor,
+            boxShadow: accentGlow,
           }}
         >
           <Typography 
@@ -406,7 +422,7 @@ export default function Home() {
             gutterBottom 
             sx={{ 
               borderBottom: '1px solid',
-              borderColor: 'var(--terminal-accent, #00aaff)',
+              borderColor: accentColor,
               pb: 1,
               mb: 3,
             }}
@@ -444,6 +460,18 @@ export default function Home() {
                         justifyContent: 'center',
                         gap: 1,
                         minHeight: '56px',
+                        borderColor: accentColor,
+                        color: accentColor,
+                        '&.Mui-selected': {
+                          backgroundColor: 'rgba(0,255,255,0.08)',
+                          color: accentColor,
+                          borderColor: accentColor,
+                          boxShadow: accentGlow,
+                        },
+                        '&:hover': {
+                          borderColor: accentColor,
+                          boxShadow: accentGlow,
+                        },
                       }
                     }}
                   >
@@ -510,7 +538,16 @@ export default function Home() {
                   <Typography variant="subtitle1" sx={{ color: 'text.secondary' }}>
                     {'>'} Parts
                   </Typography>
-                  <Button variant="outlined" size="small" onClick={addPart}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={addPart}
+                    sx={{
+                      borderColor: accentColor,
+                      color: accentColor,
+                      '&:hover': { borderColor: accentColor, boxShadow: accentGlow },
+                    }}
+                  >
                     Add another part
                   </Button>
                 </Box>
@@ -518,11 +555,29 @@ export default function Home() {
 
               {parts.map((part, idx) => (
                 <Grid key={part.id} size={12}>
-                  <Paper variant="outlined" sx={{ p: 2, mb: 1, borderRadius: 2 }}>
+                  <Paper
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      mb: 1,
+                      borderRadius: 2,
+                      borderColor: accentColor,
+                      boxShadow: accentGlow,
+                    }}
+                  >
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 1, flexWrap: 'wrap' }}>
                       <Typography variant="subtitle1">Part {idx + 1}</Typography>
                       {parts.length > 1 && (
-                        <Button size="small" color="secondary" onClick={() => removePart(part.id)}>
+                        <Button
+                          size="small"
+                          onClick={() => removePart(part.id)}
+                          sx={{
+                            color: accentColor,
+                            borderColor: accentColor,
+                            border: '1px solid',
+                            '&:hover': { borderColor: accentColor, boxShadow: accentGlow },
+                          }}
+                        >
                           Remove
                         </Button>
                       )}
@@ -572,11 +627,12 @@ export default function Home() {
                             borderRadius: 2,
                             p: 2,
                             bgcolor: 'background.paper',
-                            borderColor: 'var(--terminal-accent, #00aaff)',
+                            borderColor: accentColor,
+                            boxShadow: accentGlow,
                           }}
                         >
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                            <UploadFileIcon sx={{ color: 'var(--terminal-accent, #00aaff)' }} />
+                            <UploadFileIcon sx={{ color: accentColor }} />
                             <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                               Attach CAD file (optional)
                             </Typography>
@@ -585,7 +641,16 @@ export default function Home() {
                             Accepted: STEP (.step/.stp), SolidWorks (.sldprt/.sldasm), 3MF, STL, OBJ, IGES. Max {MAX_UPLOAD_MB} MB.
                           </Typography>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                            <Button variant="outlined" component="label" startIcon={<UploadFileIcon />}>
+                            <Button
+                              variant="outlined"
+                              component="label"
+                              startIcon={<UploadFileIcon />}
+                              sx={{
+                                borderColor: accentColor,
+                                color: accentColor,
+                                '&:hover': { borderColor: accentColor, boxShadow: accentGlow },
+                              }}
+                            >
                               {part.file ? 'Change File' : 'Choose File'}
                               <input
                                 type="file"
@@ -601,10 +666,15 @@ export default function Home() {
                                 </Typography>
                                 <Button
                                   size="small"
-                                  color="secondary"
                                   onClick={() =>
                                     updatePart(part.id, prev => ({ ...prev, file: null, fileError: null }))
                                   }
+                                  sx={{
+                                    color: accentColor,
+                                    borderColor: accentColor,
+                                    border: '1px solid',
+                                    '&:hover': { borderColor: accentColor, boxShadow: accentGlow },
+                                  }}
                                 >
                                   Remove
                                 </Button>
@@ -696,6 +766,13 @@ export default function Home() {
                   minWidth: 250, 
                   py: 2,
                   fontSize: '1.3rem',
+                  backgroundColor: accentColor,
+                  boxShadow: accentGlow,
+                  '&:hover': {
+                    backgroundColor: accentColor,
+                    boxShadow: accentGlow,
+                    filter: 'brightness(1.05)',
+                  },
                 }}
               >
                 {loading ? 'Submitting...' : 'Submit Request'}
@@ -708,7 +785,12 @@ export default function Home() {
           <Button
             variant="outlined"
             href="/dashboard"
-            sx={{ mr: 2 }}
+            sx={{
+              mr: 2,
+              borderColor: accentColor,
+              color: accentColor,
+              '&:hover': { borderColor: accentColor, boxShadow: accentGlow },
+            }}
           >
             Admin Dashboard
           </Button>
@@ -716,7 +798,7 @@ export default function Home() {
 
         {/* Terminal footer */}
         <Box sx={{ mt: 4, textAlign: 'center' }}>
-            <Divider sx={{ mb: 2, borderColor: 'var(--terminal-accent, #00aaff)', opacity: 0.3 }} />
+            <Divider sx={{ mb: 2, borderColor: accentColor, opacity: 0.3, boxShadow: accentGlow }} />
           <Typography variant="body2" color="text.secondary">
             TERMINAL STATUS: ONLINE | SYSTEM INTEGRITY: 100%
           </Typography>
